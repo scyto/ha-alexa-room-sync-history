@@ -83,7 +83,10 @@ Removing the integration **doesn't change Alexa**. Your rooms keep working, and 
 them up again by name. Only the integration's saved record of its rooms is deleted.
 
 To take the rooms down too, first use **Configure > Remove managed rooms from Alexa**, which asks
-you to confirm. It deletes only rooms it created, and keeps anything you added yourself.
+you to confirm. It removes the rooms it manages, which are the ones it created **plus any it
+adopted** (an existing Alexa group with exactly an area's name). It keeps any device it didn't put
+there. So an adopted room you made by hand is deleted too if it only held HA devices. Rename such
+a room in Alexa before a sync if you want it left alone.
 
 ## Options (Configure > Settings)
 
