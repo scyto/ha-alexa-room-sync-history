@@ -45,6 +45,7 @@ CONF_INCLUDE_CLIMATE = "include_climate"
 CONF_INCLUDE_CHILD_LOCKS = "include_child_locks"
 CONF_AREA_NAME_OVERRIDES = "area_name_overrides"
 CONF_CONFIRMED = "confirmed_not_dry_run"
+CONF_EXCLUDED_AREAS = "excluded_areas"
 
 DEFAULT_DRY_RUN = True
 DEFAULT_ROOM_PREFIX = ""

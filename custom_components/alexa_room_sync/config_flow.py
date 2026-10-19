@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
+from homeassistant.helpers.selector import AreaSelector, AreaSelectorConfig
 
 from . import alexa_client as ac
 from .const import (
@@ -19,6 +20,7 @@ from .const import (
     CONF_CONFIRMED,
     CONF_DRY_RUN,
     CONF_EMAIL,
+    CONF_EXCLUDED_AREAS,
     CONF_INCLUDE_CHILD_LOCKS,
     CONF_INCLUDE_CLIMATE,
     CONF_ROOM_PREFIX,
@@ -100,6 +102,10 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
                         CONF_INCLUDE_CHILD_LOCKS, DEFAULT_INCLUDE_CHILD_LOCKS
                     ),
                 ): bool,
+                vol.Optional(
+                    CONF_EXCLUDED_AREAS,
+                    default=opts.get(CONF_EXCLUDED_AREAS, []),
+                ): AreaSelector(AreaSelectorConfig(multiple=True)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

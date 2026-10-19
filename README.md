@@ -84,6 +84,7 @@ deleted. This integration only ever *creates* rooms; removing them is a manual A
 - **Room name prefix** — e.g. `HA ` to keep synced rooms visually distinct.
 - **Include climate** — include Tado/climate entities in rooms (default on).
 - **Include child-lock switches** — usually noise in a room (default off).
+- **Areas to skip** — HA areas a full `sync` never turns into Alexa rooms. An explicit `sync_area` on one of them still runs.
 
 ## Naming notes (multi-kitchen households)
 

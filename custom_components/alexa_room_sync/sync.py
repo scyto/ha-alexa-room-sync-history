@@ -16,6 +16,7 @@ from . import alexa_client as ac
 from .const import (
     ASSISTANT_ALEXA,
     CONF_AREA_NAME_OVERRIDES,
+    CONF_EXCLUDED_AREAS,
     CONF_INCLUDE_CHILD_LOCKS,
     CONF_INCLUDE_CLIMATE,
     CONF_ROOM_PREFIX,
@@ -183,6 +184,7 @@ async def build_plan(
     existing_names = [g.name for g in existing]
 
     rooms: dict[str, PlannedRoom] = {}
+    excluded_areas = set(options.get(CONF_EXCLUDED_AREAS) or [])
     total_exposed = 0
     total_in_area = 0
 
@@ -203,6 +205,9 @@ async def build_plan(
         total_in_area += 1
 
         if only_area_id and area_id != only_area_id:
+            continue
+        # An explicit sync_area wins; the skip list only applies to a full sync.
+        if not only_area_id and area_id in excluded_areas:
             continue
         if not _wanted_domain(entity_id, friendly, options):
             continue
