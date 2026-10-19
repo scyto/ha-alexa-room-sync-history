@@ -1,4 +1,4 @@
-"""Preview / Sync buttons for all rooms and for the area picked in the select."""
+"""Preview / Sync buttons for the whole house and for the area picked in the select."""
 
 from __future__ import annotations
 

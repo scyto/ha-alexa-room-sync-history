@@ -110,7 +110,7 @@ def _check_groups_listed(groups, managed: dict[str, dict]) -> None:
     if managed and not groups:
         raise HomeAssistantError(
             "Alexa returned no groups, but this integration manages "
-            f"{len(managed)} room(s); not changing anything. Try again. If you really "
+            f"{len(managed)} group(s); not changing anything. Try again. If you really "
             "deleted every group in the Alexa app, remove and re-add this integration "
             "to clear its record."
         )

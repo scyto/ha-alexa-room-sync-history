@@ -1,7 +1,7 @@
 preview:
-  name: Preview room sync (read-only)
+  name: Preview (read-only)
   description: >-
-    Read-only. Builds the HA area -> Alexa room plan and logs it (matched and
+    Read-only. Builds the HA area -> Alexa group plan and logs it (matched and
     unmatched devices). Never writes to Alexa. Run this first.
   fields:
     config_entry_id:
@@ -20,12 +20,12 @@ preview:
 
 list_groups:
   name: List existing Alexa groups
-  description: Read-only. Lists the groups/rooms that already exist in your Alexa account.
+  description: Read-only. Lists the groups that already exist in your Alexa account.
 
 sync_area:
-  name: Sync one area (the single-room test)
+  name: Sync one area
   description: >-
-    Create/verify the Alexa room for ONE HA area. Use this for the first, reversible
+    Create or update the Alexa group for ONE HA area. Use this for the first, reversible
     test. Writes only if 'apply' is true AND writes are confirmed in the integration
     options; otherwise behaves as a preview.
   fields:
@@ -45,7 +45,7 @@ sync_area:
     apply:
       name: Apply (write to Alexa)
       description: >-
-        If true, actually create the room. Requires the write-confirmation option to be
+        If true, actually write the group. Requires the write-confirmation option to be
         enabled. If false/omitted, this is a dry run.
       required: false
       default: false
@@ -55,10 +55,10 @@ sync_area:
 sync:
   name: Sync all areas
   description: >-
-    Bring Alexa rooms in line with HA areas: create missing rooms, update the devices
-    and name of rooms this integration manages, and delete managed rooms whose area is
+    Bring Alexa groups in line with HA areas: create missing groups, update the devices
+    and name of groups this integration manages, and delete managed groups whose area is
     skipped, removed or empty. Groups you made yourself are never touched, and Echos
-    you added to a room are kept. Writes only if 'apply' is true AND writes are
+    you added to a group are kept. Writes only if 'apply' is true AND writes are
     confirmed in options; otherwise a dry run.
   fields:
     config_entry_id:
@@ -107,11 +107,10 @@ probe_lists:
     contents of a list. Use this when the Alexa to-do entities are missing or empty.
 
 remove_managed_rooms:
-  name: Remove managed rooms from Alexa
+  name: Remove the Alexa groups it created
   description: >-
-    Deletes the Alexa rooms this integration created. A room that also holds a device you
-    added yourself (an Echo) keeps that device and is just released. Groups you made
-    yourself are never touched.
+    Deletes the Alexa groups this integration created or adopted. A group that also holds a device you
+    added yourself (an Echo) keeps that device and is just released.
   fields:
     config_entry_id:
       name: Alexa account

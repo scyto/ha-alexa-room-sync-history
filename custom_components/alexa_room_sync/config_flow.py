@@ -100,7 +100,7 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
             summary = "\n".join(f"- {name}: {res}" for name, res in results.items())
             return self.async_abort(
                 reason="rooms_removed",
-                description_placeholders={"summary": summary or "No managed rooms."},
+                description_placeholders={"summary": summary or "No Alexa groups to remove."},
             )
         return self.async_show_form(
             step_id="remove_rooms",

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Alexa Room Sync",
-        "description": "Pick the Alexa Media Player account whose Alexa rooms should mirror your Home Assistant areas.",
+        "description": "Pick the Alexa Media Player account whose Alexa groups should mirror your Home Assistant areas.",
         "data": {
           "email": "Alexa account"
         }
@@ -20,23 +20,23 @@
         "title": "Alexa Room Sync",
         "menu_options": {
           "settings": "Settings",
-          "remove_rooms": "Remove the Alexa rooms it created"
+          "remove_rooms": "Remove the Alexa groups it created"
         }
       },
       "settings": {
         "title": "Alexa Room Sync settings",
-        "description": "Each Home Assistant area gets one Alexa room. Nothing is written to Alexa until you turn dry-run off and tick the confirmation.",
+        "description": "Each Home Assistant area gets one Alexa group. Nothing is written to Alexa until you turn dry-run off and tick the confirmation.",
         "data": {
           "dry_run": "Dry-run (never write to Alexa)",
           "confirmed_not_dry_run": "I understand 'apply' will write to my Alexa account",
-          "room_prefix": "Alexa room name prefix (optional)",
-          "include_climate": "Put thermostats (climate) in Alexa rooms",
-          "include_child_locks": "Put child-lock switches in Alexa rooms"
+          "room_prefix": "Alexa group name prefix (optional)",
+          "include_climate": "Put thermostats (climate) in Alexa groups",
+          "include_child_locks": "Put child-lock switches in Alexa groups"
         },
         "sections": {
           "skip": {
             "name": "Areas to skip",
-            "description": "These areas never get an Alexa room, and don't appear in One area.",
+            "description": "These areas never get an Alexa group, and don't appear in One area.",
             "data": {
               "excluded_areas": "Areas"
             }
@@ -44,17 +44,17 @@
         }
       },
       "remove_rooms": {
-        "title": "Remove the Alexa rooms it created",
-        "description": "Deletes the Alexa rooms this integration created. A room that also holds something you added yourself, like an Echo, is kept with just those devices. Groups you made yourself are never touched. Removing the integration on its own does not change Alexa.",
+        "title": "Remove the Alexa groups it created",
+        "description": "Deletes the Alexa groups this integration created or adopted. A group that also holds something you added yourself, like an Echo, is kept with just those devices. Groups you made yourself are otherwise never touched. Removing the integration on its own does not change Alexa.",
         "data": {
-          "confirm": "Yes, remove these Alexa rooms"
+          "confirm": "Yes, remove these Alexa groups"
         }
       }
     },
     "abort": {
       "rooms_removed": "Done.\n\n{summary}",
       "remove_cancelled": "Nothing was changed.",
-      "remove_failed": "Couldn't remove the Alexa rooms: {error}"
+      "remove_failed": "Couldn't remove the Alexa groups: {error}"
     }
   },
   "entity": {
