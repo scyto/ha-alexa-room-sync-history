@@ -177,6 +177,7 @@ first.
 - **v0.10.1:** *Last result* keeps each run's per-group outcome as attributes, viewable in History.
 - **v0.10.2:** each run's per-group changes are written to the Activity (logbook); the notification is gone.
 - **v0.11.0:** optional *Put Echos in their area's Alexa group*, using Alexa Media Player's areas.
+- **v0.11.1:** Echos: only the Echo speaker device is added to a group (a tablet's AlexaBridge endpoint made Amazon reject the update).
 
 ## Credits & licence
 
