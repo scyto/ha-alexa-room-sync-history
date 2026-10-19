@@ -141,6 +141,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("[applied] %s: %s", name, res)
         return _plan_to_response(plan, dry_run=False, results=results)
 
+    # Real coroutine functions, not lambdas: HA only awaits a handler it can
+    # recognise as async, so a lambda returning a coroutine never runs.
+    async def _handle_sync_area(call: ServiceCall) -> ServiceResponse:
+        return await _run_sync(call, call.data[ATTR_AREA_ID])
+
+    async def _handle_sync(call: ServiceCall) -> ServiceResponse:
+        return await _run_sync(call, None)
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_PREVIEW,
@@ -157,7 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE_SYNC_AREA,
-        lambda call: _run_sync(call, call.data[ATTR_AREA_ID]),
+        _handle_sync_area,
         schema=vol.Schema(
             {
                 vol.Required(ATTR_AREA_ID): cv.string,
@@ -169,7 +177,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(
         DOMAIN,
         SERVICE_SYNC,
-        lambda call: _run_sync(call, None),
+        _handle_sync,
         schema=vol.Schema({vol.Optional("apply"): cv.boolean}),
         supports_response=SupportsResponse.OPTIONAL,
     )
