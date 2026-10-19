@@ -115,41 +115,78 @@ def _area_for_entity(
     return None
 
 
-def _echo_serials_by_area(hass: HomeAssistant) -> dict[str, list[tuple[str, str]]]:
-    """area_id -> [(entity_id, serial)] for Echos from Alexa Media Player.
+# AMP media_players that never have an Alexa smart-home device of their own.
+_NON_ECHO_MODELS = ("Speaker Group", "Alexa Mobile Voice")
+# Echo serials (upper case) that matched an Alexa device on the last plan, by account.
+_MATCHED_ECHO_AREAS: dict[str | None, set[str]] = {}
 
-    Uses the area you gave each Echo in HA; the serial is AMP's device identifier.
+
+def _amp_serial(identifier: str) -> str:
+    """The raw Echo serial from AMP's device identifier.
+
+    AMP's first account uses the serial as-is; later accounts use
+    slugify(f"{serial}_{email}"), lower-cased. Serials are alphanumeric, so the
+    part before the first "_" is the serial; compare case-insensitively.
+    """
+    return identifier.split("_", 1)[0].upper()
+
+
+def _amp_entry_ids(hass: HomeAssistant, email: str | None) -> set[str] | None:
+    """Config entry ids of the Alexa Media Player account for ``email`` (None = any)."""
+    if not email:
+        return None
+    ids = {
+        e.entry_id
+        for e in hass.config_entries.async_entries(ALEXA_MEDIA_PLATFORM)
+        if str(e.data.get("email", "")).lower() == email.lower()
+    }
+    return ids or None
+
+
+def _echo_serials_by_area(
+    hass: HomeAssistant, email: str | None = None
+) -> dict[str, list[tuple[str, str]]]:
+    """area_id -> [(entity_id, SERIAL)] for one account's Alexa Media Player Echos.
+
+    Uses the area you gave each Echo in HA. Phone apps and speaker groups are left
+    out: they have no Alexa smart-home device to put in a group.
     """
     ent_reg = er.async_get(hass)
     dev_reg = dr.async_get(hass)
+    account = _amp_entry_ids(hass, email)
     out: dict[str, list[tuple[str, str]]] = {}
     for entry in ent_reg.entities.values():
         if entry.platform != ALEXA_MEDIA_PLATFORM or entry.domain != "media_player":
             continue
+        if account is not None and entry.config_entry_id not in account:
+            continue
         if not entry.device_id:
             continue
         device = dev_reg.async_get(entry.device_id)
-        if device is None:
+        if device is None or str(device.model or "").startswith(_NON_ECHO_MODELS):
             continue
-        serial = next(
+        ident = next(
             (ident for dom, ident in device.identifiers if dom == ALEXA_MEDIA_PLATFORM),
             None,
         )
         area_id = _area_for_entity(hass, ent_reg, dev_reg, entry.entity_id)
-        if serial and area_id:
-            out.setdefault(area_id, []).append((entry.entity_id, serial))
+        if ident and area_id:
+            out.setdefault(area_id, []).append((entry.entity_id, _amp_serial(ident)))
     return out
 
 
 def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
-               only_area_id, excluded_areas) -> None:
+               only_area_id, excluded_areas, email=None) -> None:
     """Put each Echo's Alexa device(s) in the group for the HA area it's in."""
     area_reg = ar.async_get(hass)
     by_serial: dict[str, list[str]] = {}
     for appliance in appliances:
         for serial in appliance.serials:
-            by_serial.setdefault(serial, []).append(appliance.appliance_id)
-    for area_id, echos in _echo_serials_by_area(hass).items():
+            by_serial.setdefault(serial.upper(), []).append(appliance.appliance_id)
+    matched_areas: set[str] = set()
+    for area_id, echos in _echo_serials_by_area(hass, email).items():
+        if any(by_serial.get(serial) for _, serial in echos):
+            matched_areas.add(area_id)
         if only_area_id and area_id != only_area_id:
             continue
         if not only_area_id and area_id in excluded_areas:
@@ -160,7 +197,7 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
         for entity_id, serial in echos:
             ids = by_serial.get(serial, [])
             if not ids:
-                continue  # phone apps, speaker groups, etc. have no smart-home device
+                continue  # e.g. a tablet or third-party speaker with no smart-home device
             room = rooms.get(area_id)
             if room is None:
                 room = PlannedRoom(area_id=area_id, room_name=_room_name(area.name, options))
@@ -172,9 +209,14 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
                 room.wanted[key] = entity_id
                 room.matched[key] = aid
                 ha_appliance_ids.add(aid)
+    # Remember which areas really have a matchable Echo, so the area picker can
+    # list only those (it can't ask Amazon itself).
+    _MATCHED_ECHO_AREAS[email] = matched_areas
 
 
-def syncable_area_ids(hass: HomeAssistant, options: dict) -> set[str]:
+def syncable_area_ids(
+    hass: HomeAssistant, options: dict, email: str | None = None
+) -> set[str]:
     """Areas a full sync would give a room: an exposed device of a room-worthy
     domain in it, and not on the skip list. Registry-only, so it's cheap."""
     ent_reg = er.async_get(hass)
@@ -194,7 +236,11 @@ def syncable_area_ids(hass: HomeAssistant, options: dict) -> set[str]:
         if _wanted_domain(entry.entity_id, friendly, options):
             areas.add(area_id)
     if options.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS):
-        areas |= set(_echo_serials_by_area(hass)) - excluded
+        echo_areas = set(_echo_serials_by_area(hass, email))
+        if email in _MATCHED_ECHO_AREAS:
+            # After a preview or sync, only areas whose Echo matched an Alexa device.
+            echo_areas &= _MATCHED_ECHO_AREAS[email]
+        areas |= echo_areas - excluded
     return areas
 
 
@@ -334,7 +380,7 @@ async def build_plan(
 
     if options.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS):
         _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
-                   only_area_id, excluded_areas)
+                   only_area_id, excluded_areas, email=getattr(login, "email", None))
 
     return SyncPlan(
         rooms=list(rooms.values()),

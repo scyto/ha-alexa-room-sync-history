@@ -16,7 +16,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import DOMAIN
+from .const import CONF_EMAIL, DOMAIN
 from .sync import syncable_area_ids
 
 
@@ -73,7 +73,9 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
             self.async_write_ha_state()
 
     def _refresh_options(self) -> None:
-        wanted = syncable_area_ids(self.hass, dict(self._entry.options))
+        wanted = syncable_area_ids(
+            self.hass, dict(self._entry.options), self._entry.data.get(CONF_EMAIL)
+        )
         names = [
             a.name for a in ar.async_get(self.hass).async_list_areas() if a.id in wanted
         ]
