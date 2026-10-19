@@ -19,6 +19,7 @@ from homeassistant.helpers.selector import AreaSelector, AreaSelectorConfig
 from . import alexa_client as ac
 from . import runner
 from .const import (
+    ATTR_AREA_ID,
     CONF_AREA_NAME_OVERRIDES,
     CONF_CONFIRMED,
     CONF_DRY_RUN,
@@ -81,7 +82,50 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="init", menu_options=["settings", "remove_rooms"]
+            step_id="init", menu_options=["sync_area", "settings", "remove_rooms"]
+        )
+
+    async def async_step_sync_area(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Preview or sync the Alexa room for one HA area."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            apply = bool(user_input.get("apply"))
+            if apply and not self._entry.options.get(CONF_CONFIRMED):
+                errors["base"] = "writes_not_confirmed"
+            else:
+                try:
+                    response = await runner.run_sync(
+                        self.hass,
+                        self._entry,
+                        only_area_id=user_input[ATTR_AREA_ID],
+                        apply=apply,
+                    )
+                except HomeAssistantError as err:
+                    return self.async_abort(
+                        reason="sync_failed", description_placeholders={"error": str(err)}
+                    )
+                if apply:
+                    lines = [f"- {k}: {v}" for k, v in response.get("results", {}).items()]
+                else:
+                    lines = [f"- {a['room_name']}: {a['summary']}"
+                             for a in response["actions"]]
+                return self.async_abort(
+                    reason="area_synced" if apply else "area_previewed",
+                    description_placeholders={
+                        "summary": "\n".join(lines) or "Nothing to do for that area."
+                    },
+                )
+        return self.async_show_form(
+            step_id="sync_area",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(ATTR_AREA_ID): AreaSelector(),
+                    vol.Optional("apply", default=False): bool,
+                }
+            ),
+            errors=errors,
         )
 
     async def async_step_remove_rooms(

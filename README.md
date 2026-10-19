@@ -79,6 +79,12 @@ Alexa app) are always kept. Groups it didn't create are left alone, with one exc
 an Alexa group has exactly the room's name and no room is managed for that area yet, it is
 adopted (useful after upgrading from a create-only version).
 
+### Syncing one area
+
+**Configure > Sync one area** lets you pick an area and either preview it (Apply off) or sync
+just that room (Apply on). Other rooms are left alone, and it works for areas on the skip list.
+The `alexa_room_sync.sync_area` action does the same from scripts.
+
 ### Removing it
 
 Removing the integration does **not** change Alexa. Your rooms keep working, and a reinstall
