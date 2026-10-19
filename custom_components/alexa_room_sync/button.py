@@ -47,7 +47,7 @@ class PreviewButton(_RoomSyncButton):
 class SyncButton(_RoomSyncButton):
     """Run a full sync. Still a preview while dry-run is on or writes aren't confirmed."""
 
-    _attr_icon = "mdi:home-sync-outline"
+    _attr_icon = "mdi:sync"
 
     def __init__(self, entry: ConfigEntry) -> None:
         super().__init__(entry, "sync")
