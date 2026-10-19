@@ -59,6 +59,7 @@ SERVICE_SYNC = "sync"
 SERVICE_LIST_GROUPS = "list_groups"
 SERVICE_DUMP_APPLIANCES = "dump_appliances"
 SERVICE_REMOVE_MANAGED_ROOMS = "remove_managed_rooms"
+SERVICE_PROBE_ENDPOINTS = "probe_endpoints"
 
 ATTR_AREA_ID = "area_id"
 

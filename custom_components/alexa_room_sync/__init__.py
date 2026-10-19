@@ -33,6 +33,7 @@ from .const import (
     SERVICE_DUMP_APPLIANCES,
     SERVICE_LIST_GROUPS,
     SERVICE_PREVIEW,
+    SERVICE_PROBE_ENDPOINTS,
     SERVICE_PROBE_LISTS,
     SERVICE_REMOVE_MANAGED_ROOMS,
     SERVICE_SYNC,
@@ -245,7 +246,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(
         DOMAIN,
-        "probe_endpoints",
+        SERVICE_PROBE_ENDPOINTS,
         _handle_probe_endpoints,
         schema=vol.Schema({vol.Optional("sample_count"): cv.positive_int, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
@@ -286,6 +287,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_LIST_GROUPS,
         SERVICE_DUMP_APPLIANCES,
         SERVICE_PROBE_LISTS,
+        SERVICE_PROBE_ENDPOINTS,
         SERVICE_REMOVE_MANAGED_ROOMS,
     ):
         if hass.services.has_service(DOMAIN, service):

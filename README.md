@@ -159,6 +159,7 @@ first.
   picked area survive restarts.
 - **v0.9.1:** *Area to sync* lists only areas that get a room.
 - **v0.9.2:** `dump_appliances` reports the GraphQL and `/api/phoenix` sources separately.
+- **v0.9.3:** removing the integration also removes the `probe_endpoints` action.
 
 ## Credits & licence
 
