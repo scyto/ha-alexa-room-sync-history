@@ -54,6 +54,9 @@ class SyncPlan:
     total_exposed: int
     total_in_area: int
     groups: list[ac.AlexaGroup] = field(default_factory=list)
+    # Every applianceId known to be an HA entity, from any area: by embedded
+    # entity_id or by the name fallback. Used to tell HA members from Echos.
+    ha_appliance_ids: set[str] = field(default_factory=set)
 
     def summary_lines(self) -> list[str]:
         lines = [
@@ -189,6 +192,7 @@ async def build_plan(
     existing_names = [g.name for g in existing]
 
     rooms: dict[str, PlannedRoom] = {}
+    ha_appliance_ids: set[str] = set(by_entity.values())
     excluded_areas = set(options.get(CONF_EXCLUDED_AREAS) or [])
     total_exposed = 0
     total_in_area = 0
@@ -208,6 +212,12 @@ async def build_plan(
         if not area_id:
             continue
         total_in_area += 1
+
+        name_match = _match_appliance(
+            entity_id, _entity_names(entry, friendly), by_entity, by_name
+        )
+        if name_match:
+            ha_appliance_ids.add(name_match)
 
         if only_area_id and area_id != only_area_id:
             continue
@@ -242,6 +252,7 @@ async def build_plan(
         total_exposed=total_exposed,
         total_in_area=total_in_area,
         groups=existing,
+        ha_appliance_ids=ha_appliance_ids,
     )
 
 
@@ -266,11 +277,16 @@ class RoomAction:
     removed: list[str] = field(default_factory=list)
     renamed_from: str = ""
     adopted: bool = False
+    release: bool = False  # stop managing the room after this update
+    members: list[str] = field(default_factory=list)  # HA members we leave in it
     note: str = ""
 
     def describe(self) -> str:
         if self.kind == CREATE:
             return f"create with {len(self.appliance_ids)} device(s)"
+        if self.kind == UPDATE and self.release:
+            return (f"remove {len(self.removed)} HA device(s), keep "
+                    f"{len(self.appliance_ids)} other(s), stop managing")
         if self.kind == UPDATE:
             bits = []
             if self.added:
@@ -289,8 +305,22 @@ class RoomAction:
         return f"skip ({self.note})"
 
 
-def _is_ha_member(appliance_id: str) -> bool:
-    return ac.entity_id_from_appliance_id(appliance_id) is not None
+def _ha_member_test(plan: SyncPlan, record: dict | None):
+    """Return a predicate telling HA-entity members of a group from everything else.
+
+    An appliance counts as HA if its id carries an entity_id, if the plan matched it to
+    an HA entity (including by name), or if this integration put it in the room last
+    time. The last case catches entities that have since been unexposed.
+    """
+    known = set(plan.ha_appliance_ids) | set((record or {}).get("members", []))
+
+    def is_ha(appliance_id: str) -> bool:
+        return (
+            appliance_id in known
+            or ac.entity_id_from_appliance_id(appliance_id) is not None
+        )
+
+    return is_ha
 
 
 def reconcile(
@@ -324,14 +354,15 @@ def reconcile(
         if group is None:
             if want:
                 actions.append(RoomAction(CREATE, room.area_id, room.room_name,
-                                          appliance_ids=want))
+                                          appliance_ids=want, members=want))
             else:
                 actions.append(RoomAction(SKIP, room.area_id, room.room_name,
                                           note="no matched devices"))
             continue
 
-        others = [a for a in group.appliance_ids if not _is_ha_member(a)]
-        have = [a for a in group.appliance_ids if _is_ha_member(a)]
+        is_ha = _ha_member_test(plan, record)
+        others = [a for a in group.appliance_ids if not is_ha(a)]
+        have = [a for a in group.appliance_ids if is_ha(a)]
         added = [a for a in want if a not in have]
         removed = [a for a in have if a not in want]
         renamed_from = group.name if group.name != room.room_name else ""
@@ -345,10 +376,11 @@ def reconcile(
                                       group_id=group.group_id,
                                       appliance_ids=others + want, added=added,
                                       removed=removed, renamed_from=renamed_from,
-                                      adopted=adopted))
+                                      adopted=adopted, members=want))
         else:
             actions.append(RoomAction(UNCHANGED, room.area_id, room.room_name,
-                                      group_id=group.group_id, adopted=adopted))
+                                      group_id=group.group_id, adopted=adopted,
+                                      members=want))
 
     if only_area_id is None:
         planned = {r.area_id for r in plan.rooms}
@@ -360,6 +392,18 @@ def reconcile(
             if group is None:
                 actions.append(RoomAction(FORGET, area_id, name,
                                           group_id=record.get("group_id", "")))
+                continue
+            is_ha = _ha_member_test(plan, record)
+            others = [a for a in group.appliance_ids if not is_ha(a)]
+            if others:
+                # Something you added by hand (an Echo) is in it: strip our devices,
+                # leave the room to you.
+                actions.append(RoomAction(
+                    UPDATE, area_id, group.name, group_id=group.group_id,
+                    appliance_ids=others,
+                    removed=[a for a in group.appliance_ids if is_ha(a)],
+                    release=True,
+                ))
             else:
                 actions.append(RoomAction(DELETE, area_id, group.name,
                                           group_id=group.group_id,
@@ -391,15 +435,21 @@ async def apply_actions(
                             gid = group.group_id
                             break
                 if gid:
-                    managed[action.area_id] = {"group_id": gid, "name": action.room_name}
+                    managed[action.area_id] = {"group_id": gid, "name": action.room_name,
+                                               "members": action.members}
                 results[label] = f"created with {len(action.appliance_ids)} device(s)"
                 if not gid:
                     results[label] += " (no groupId returned; adopted by name on next sync)"
             elif action.kind == UPDATE:
                 await ac.update_group(login, by_id[action.group_id], action.room_name,
                                       action.appliance_ids)
+                if action.release:
+                    managed.pop(action.area_id, None)
+                    results[label] = action.describe()
+                    continue
                 managed[action.area_id] = {"group_id": action.group_id,
-                                           "name": action.room_name}
+                                           "name": action.room_name,
+                                           "members": action.members}
                 results[label] = action.describe().replace("update", "updated", 1)
             elif action.kind == DELETE:
                 await ac.delete_group(login, action.group_id)
@@ -410,7 +460,8 @@ async def apply_actions(
                 results[label] = action.describe()
             elif action.kind == UNCHANGED:
                 managed[action.area_id] = {"group_id": action.group_id,
-                                           "name": action.room_name}
+                                           "name": action.room_name,
+                                           "members": action.members}
                 results[label] = action.describe()
             else:
                 results[label] = action.describe()
