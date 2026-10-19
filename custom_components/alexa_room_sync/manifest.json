@@ -6,12 +6,13 @@
   ],
   "config_flow": true,
   "after_dependencies": [
-    "alexa_media"
+    "alexa_media",
+    "logbook"
   ],
-  "documentation": "https://github.com/neilellis/ha-alexa-room-sync",
+  "documentation": "https://github.com/scyto/ha-alexa-room-sync",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/neilellis/ha-alexa-room-sync/issues",
+  "issue_tracker": "https://github.com/scyto/ha-alexa-room-sync/issues",
   "requirements": [],
-  "version": "0.10.1"
+  "version": "0.10.2"
 }

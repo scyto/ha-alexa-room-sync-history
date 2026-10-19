@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -71,12 +72,9 @@ async def run_sync(
 
     response = _response(plan, actions, results, managed, dry_run=not apply)
     scope = _scope(hass, only_area_id)
-    _publish(
-        hass,
-        entry,
-        _short_summary(actions, applied=apply, scope=scope),
-        _details(actions, results, scope=scope, applied=apply),
-    )
+    details = _details(actions, results, scope=scope, applied=apply)
+    _publish(hass, entry, _short_summary(actions, applied=apply, scope=scope), details)
+    _log_to_activity(hass, entry, details)
     if notify:
         persistent_notification.async_create(
             hass, _notification_text(actions, results, scope), "Alexa Room Sync", NOTIFICATION_ID
@@ -203,6 +201,34 @@ def _details(actions, results, *, scope: str, applied: bool) -> dict[str, Any]:
         "ran_at": dt_util.utcnow().isoformat(),
         "groups": groups,
     }
+
+
+def _log_to_activity(hass: HomeAssistant, entry: ConfigEntry, details: dict[str, Any]) -> None:
+    """Write the per-group outcome to the logbook, so the device's Activity panel
+    shows what each run changed long after the notification is dismissed."""
+    try:
+        from homeassistant.components.logbook import async_log_entry  # noqa: PLC0415
+    except ImportError:
+        return
+    groups = details["groups"]
+    changed = {
+        name: what for name, what in groups.items()
+        if not str(what).startswith(("unchanged", "skip"))
+    }
+    if changed:
+        body = "; ".join(f"{name}: {what}" for name, what in changed.items())
+    else:
+        body = f"all {len(groups)} group(s) already matched"
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.entry_id}_last_result"
+    )
+    async_log_entry(
+        hass,
+        f"{details['scope']} – {details['mode']}",
+        body,
+        domain=DOMAIN,
+        entity_id=entity_id,
+    )
 
 
 def _publish(

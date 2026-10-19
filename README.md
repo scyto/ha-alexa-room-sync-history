@@ -57,7 +57,7 @@ saying the area name. The sync keeps Echos you add.
 | **One area – Sync** | Syncs only that area's Alexa group. |
 | **Whole house – Preview** | Shows what syncing every area would change. Never writes. |
 | **Whole house – Sync** | Syncs every area. |
-| **Last result** | One-line summary of the last run. The full per-group outcome is in its attributes (`scope`, `mode`, `ran_at`, `groups`), so **History** keeps every run even after you dismiss the notification. |
+| **Last result** | One-line summary of the last run. The full per-group outcome is in its attributes (`scope`, `mode`, `ran_at`, `groups`), so the run is kept after you dismiss the notification. Each run is also written to the device's **Activity** panel, listing what changed in each Alexa group. |
 
 Both Sync buttons write only when dry-run is off and writes are confirmed; otherwise they preview.
 HA lists the controls by name, which keeps the *One area* controls together, followed by
@@ -169,6 +169,7 @@ first.
 - **v0.9.3:** removing the integration also removes the `probe_endpoints` action.
 - **v0.10.0:** clearer names: *One area* / *Whole house* controls, "area" for HA and "Alexa group" for what's created.
 - **v0.10.1:** *Last result* keeps each run's per-group outcome as attributes, viewable in History.
+- **v0.10.2:** each run's per-group changes are written to the Activity (logbook).
 
 ## Credits & licence
 
