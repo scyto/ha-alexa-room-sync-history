@@ -20,7 +20,7 @@ async def async_setup_entry(
 
 
 class LastResultSensor(RestoreSensor):
-    """Short summary of the last Preview or Sync, e.g. 'Preview: 19 create, 1 unchanged.'"""
+    """Short summary of the last Preview or Sync, e.g. 'Whole house – preview: 19 create, 1 unchanged.'"""
 
     _attr_has_entity_name = True
     _attr_translation_key = "last_result"
@@ -41,7 +41,7 @@ class LastResultSensor(RestoreSensor):
         self._attr_native_value = (
             runner.last_result(self.hass, self._entry)
             or (last.native_value if last else None)
-            or "Press Preview; the result appears in Notifications (the bell)."
+            or "Press a Preview button; results appear in Notifications (the bell)."
         )
         self.async_on_remove(
             async_dispatcher_connect(

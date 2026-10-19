@@ -73,7 +73,7 @@ class _AreaButton(_RoomSyncButton):
     def _area(self) -> str:
         area_id = selected_area_id(self.hass, self._entry)
         if not area_id:
-            raise HomeAssistantError("Pick an area in 'Area to sync' first.")
+            raise HomeAssistantError("Pick an area in 'One area' first.")
         return area_id
 
 

@@ -20,56 +20,56 @@
         "title": "Alexa Room Sync",
         "menu_options": {
           "settings": "Settings",
-          "remove_rooms": "Remove managed rooms from Alexa"
+          "remove_rooms": "Remove the Alexa rooms it created"
         }
       },
       "settings": {
-        "title": "Alexa Room Sync options",
-        "description": "By default nothing is written to Alexa. To let the sync create rooms, turn OFF dry-run and turn ON the write confirmation.",
+        "title": "Alexa Room Sync settings",
+        "description": "Each Home Assistant area gets one Alexa room. Nothing is written to Alexa until you turn dry-run off and tick the confirmation.",
         "data": {
           "dry_run": "Dry-run (never write to Alexa)",
           "confirmed_not_dry_run": "I understand 'apply' will write to my Alexa account",
-          "room_prefix": "Room name prefix (optional)",
-          "include_climate": "Include Tado/climate entities in rooms",
-          "include_child_locks": "Include child-lock switches in rooms"
+          "room_prefix": "Alexa room name prefix (optional)",
+          "include_climate": "Put thermostats (climate) in Alexa rooms",
+          "include_child_locks": "Put child-lock switches in Alexa rooms"
         },
         "sections": {
           "skip": {
-            "name": "Rooms to skip",
-            "description": "These areas never get an Alexa room from a full sync. Running sync_area on one of them still works.",
+            "name": "Areas to skip",
+            "description": "These areas never get an Alexa room, and don't appear in One area.",
             "data": {
-              "excluded_areas": "Areas to skip"
+              "excluded_areas": "Areas"
             }
           }
         }
       },
       "remove_rooms": {
-        "title": "Remove managed rooms from Alexa",
+        "title": "Remove the Alexa rooms it created",
         "description": "Deletes the Alexa rooms this integration created. A room that also holds something you added yourself, like an Echo, is kept with just those devices. Groups you made yourself are never touched. Removing the integration on its own does not change Alexa.",
         "data": {
-          "confirm": "Yes, remove the rooms from Alexa"
+          "confirm": "Yes, remove these Alexa rooms"
         }
       }
     },
     "abort": {
       "rooms_removed": "Done.\n\n{summary}",
       "remove_cancelled": "Nothing was changed.",
-      "remove_failed": "Couldn't remove the rooms: {error}"
+      "remove_failed": "Couldn't remove the Alexa rooms: {error}"
     }
   },
   "entity": {
     "button": {
       "preview": {
-        "name": "Preview room sync"
+        "name": "Whole house – Preview"
       },
       "sync": {
-        "name": "Sync rooms now"
+        "name": "Whole house – Sync"
       },
       "preview_area": {
-        "name": "Preview selected area"
+        "name": "One area – Preview"
       },
       "sync_area": {
-        "name": "Sync selected area"
+        "name": "One area – Sync"
       }
     },
     "sensor": {
@@ -79,7 +79,7 @@
     },
     "select": {
       "area_to_sync": {
-        "name": "Area to sync"
+        "name": "One area"
       }
     }
   }

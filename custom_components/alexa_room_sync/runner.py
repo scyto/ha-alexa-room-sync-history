@@ -12,6 +12,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 
@@ -68,10 +69,11 @@ async def run_sync(
         await store.async_save({"rooms": managed})
 
     response = _response(plan, actions, results, managed, dry_run=not apply)
-    _publish(hass, entry, _short_summary(actions, applied=apply))
+    scope = _scope(hass, only_area_id)
+    _publish(hass, entry, _short_summary(actions, applied=apply, scope=scope))
     if notify:
         persistent_notification.async_create(
-            hass, _notification_text(actions, results), "Alexa Room Sync", NOTIFICATION_ID
+            hass, _notification_text(actions, results, scope), "Alexa Room Sync", NOTIFICATION_ID
         )
     return response
 
@@ -150,12 +152,20 @@ def _response(plan, actions, results, managed, *, dry_run: bool) -> dict[str, An
     return response
 
 
-def _notification_text(actions, results) -> str:
+def _scope(hass: HomeAssistant, only_area_id: str | None) -> str:
+    """'Whole house', or 'One area (Kitchen)', matching the button names."""
+    if not only_area_id:
+        return "Whole house"
+    area = ar.async_get(hass).async_get_area(only_area_id)
+    return f"One area ({area.name if area else only_area_id})"
+
+
+def _notification_text(actions, results, scope: str = "Whole house") -> str:
     if results is None:
-        lines = ["**Preview only. Nothing was changed in Alexa.**", ""]
+        lines = [f"**{scope} – preview. Nothing was changed in Alexa.**", ""]
         lines += [f"- {a.room_name}: {a.describe()}" for a in actions]
     else:
-        lines = ["**Sync finished.**", ""]
+        lines = [f"**{scope} – sync finished.**", ""]
         lines += [f"- {name}: {res}" for name, res in results.items()]
     changes = [a for a in actions if a.kind not in (sync_mod.UNCHANGED, sync_mod.SKIP)]
     if results is None and not changes:
@@ -163,14 +173,14 @@ def _notification_text(actions, results) -> str:
     return "\n".join(lines)
 
 
-def _short_summary(actions, *, applied: bool) -> str:
+def _short_summary(actions, *, applied: bool, scope: str = "Whole house") -> str:
     counts: dict[str, int] = {}
     for a in actions:
         counts[a.kind] = counts.get(a.kind, 0) + 1
     order = [(sync_mod.CREATE, "create"), (sync_mod.UPDATE, "update"),
              (sync_mod.DELETE, "delete"), (sync_mod.UNCHANGED, "unchanged")]
     bits = [f"{counts[k]} {label}" for k, label in order if counts.get(k)]
-    head = "Synced" if applied else "Preview"
+    head = f"{scope} – {'synced' if applied else 'preview'}"
     return f"{head}: {', '.join(bits) or 'nothing to do'}. Details in Notifications."
 
 
