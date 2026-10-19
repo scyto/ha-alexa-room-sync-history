@@ -54,6 +54,7 @@ class Appliance:
     friendly_name: str
     entity_id: str | None  # HA entity_id if the appliance carries one (Nabu Casa does)
     serials: tuple[str, ...] = ()  # Echo serial(s) this appliance belongs to, if any
+    types: tuple[str, ...] = ()  # Alexa applianceTypes, e.g. ALEXA_VOICE_ENABLED
 
 
 @dataclass
@@ -382,6 +383,7 @@ async def get_appliances(login) -> list[Appliance]:
             friendly_name=str(name).strip(),
             entity_id=_extract_entity_id(rec),
             serials=_device_serials(rec),
+            types=tuple(str(t) for t in (rec.get("applianceTypes") or [])),
         )
     return list(seen.values())
 

@@ -117,6 +117,13 @@ def _area_for_entity(
 
 # Alexa's own device id for an Echo speaker; the only kind we put in a group.
 ECHO_APPLIANCE_PREFIX = "AAA_SonarCloudService_"
+def _is_echo_speaker(appliance) -> bool:
+    return (
+        appliance.appliance_id.startswith(ECHO_APPLIANCE_PREFIX)
+        and "ALEXA_VOICE_ENABLED" in appliance.types
+    )
+
+
 # AMP media_players that never have an Alexa smart-home device of their own.
 _NON_ECHO_MODELS = ("Speaker Group", "Alexa Mobile Voice")
 # Echo serials (upper case) that matched an Alexa device on the last plan, by account.
@@ -184,9 +191,11 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
     by_serial: dict[str, list[str]] = {}
     for appliance in appliances:
         # Only the Echo speaker itself goes in a group. Other Alexa devices that
-        # share its serial (an "AlexaBridge_" endpoint for a tablet's Alexa or a
-        # built-in sensor) can be refused by Amazon and fail the whole update.
-        if not appliance.appliance_id.startswith(ECHO_APPLIANCE_PREFIX):
+        # share its serial (an "AlexaBridge_" endpoint for a tablet's Alexa, a
+        # built-in sensor or a Zigbee/Matter child on the same driver) can be
+        # refused by Amazon and fail the whole update. The speaker is the one that
+        # is voice-enabled, which is the test Alexa Media Player uses too.
+        if not _is_echo_speaker(appliance):
             continue
         for serial in appliance.serials:
             by_serial.setdefault(serial.upper(), []).append(appliance.appliance_id)
@@ -209,7 +218,7 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
             if room is None:
                 room = PlannedRoom(area_id=area_id, room_name=_room_name(area.name, options))
                 rooms[area_id] = room
-            for n, aid in enumerate(ids):
+            for n, aid in enumerate(ids[:1]):  # one speaker per Echo
                 key = entity_id if n == 0 else f"{entity_id}#{n}"
                 room.wanted[key] = entity_id
                 room.matched[key] = aid

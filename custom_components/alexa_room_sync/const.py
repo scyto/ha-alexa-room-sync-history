@@ -32,6 +32,7 @@ query CustomerSmartHome {
                 entityId
                 aliases
                 alexaDeviceIdentifierList
+                applianceTypes
             }
         }
     }
