@@ -43,7 +43,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Alexa's named lists become HA to-do entities (see todo.py). Kept in this integration
 # rather than a second one because the authenticated session is already here.
-PLATFORMS = [Platform.BUTTON, Platform.TODO]
+PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.TODO]
 
 
 def _login_for_entry(hass: HomeAssistant, entry: ConfigEntry):

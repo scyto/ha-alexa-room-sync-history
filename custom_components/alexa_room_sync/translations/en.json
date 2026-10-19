@@ -65,6 +65,11 @@
       "sync": {
         "name": "Sync rooms now"
       }
+    },
+    "sensor": {
+      "last_result": {
+        "name": "Last result"
+      }
     }
   }
 }
