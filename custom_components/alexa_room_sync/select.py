@@ -10,6 +10,7 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -54,8 +55,12 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
         last = await self.async_get_last_state()
         if last and last.state in self._attr_options:
             self._set(last.state)
-        # Area renames, entity area moves and Alexa exposure changes all land here.
-        for event in (ar.EVENT_AREA_REGISTRY_UPDATED, er.EVENT_ENTITY_REGISTRY_UPDATED):
+        # Area renames, entity or device area moves, and Alexa exposure changes.
+        for event in (
+            ar.EVENT_AREA_REGISTRY_UPDATED,
+            er.EVENT_ENTITY_REGISTRY_UPDATED,
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+        ):
             self.async_on_remove(self.hass.bus.async_listen(event, self._areas_changed))
 
     @callback
