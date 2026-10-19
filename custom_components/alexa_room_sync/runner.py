@@ -59,6 +59,7 @@ async def run_sync(
     store = _store(hass, entry)
     data = await store.async_load() or {}
     managed: dict[str, dict] = dict(data.get("rooms", {}))
+    _check_groups_listed(plan.groups, managed)
     actions = sync_mod.reconcile(plan, managed, only_area_id=only_area_id)
 
     results = None
@@ -89,12 +90,28 @@ async def remove_managed_rooms(
         groups = await ac.get_groups(login)
     except ac.AlexaClientError as err:
         raise HomeAssistantError(str(err)) from err
+    _check_groups_listed(groups, managed)
     plan = sync_mod.SyncPlan(rooms=[], existing_group_names=[], total_exposed=0,
                              total_in_area=0, groups=groups)
     actions = sync_mod.teardown(groups, managed)
     results = await sync_mod.apply_actions(login, plan, actions, managed)
     await store.async_save({"rooms": managed})
     return results
+
+
+def _check_groups_listed(groups, managed: dict[str, dict]) -> None:
+    """Refuse to act on an empty group listing while we manage rooms.
+
+    An empty or unrecognised response would otherwise read as "every managed room
+    is gone": a sync would recreate them all and the record would be lost.
+    """
+    if managed and not groups:
+        raise HomeAssistantError(
+            "Alexa returned no groups, but this integration manages "
+            f"{len(managed)} room(s); not changing anything. Try again. If you really "
+            "deleted every group in the Alexa app, remove and re-add this integration "
+            "to clear its record."
+        )
 
 
 async def forget_managed_rooms(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -424,13 +424,20 @@ def teardown(groups: list[ac.AlexaGroup], managed: dict[str, dict]) -> list[Room
             actions.append(RoomAction(FORGET, area_id, record.get("name", area_id),
                                       group_id=record.get("group_id", "")))
             continue
-        is_ha = _ha_member_test(plan, record)
-        others = [a for a in group.appliance_ids if not is_ha(a)]
+        # Take out only what this integration put there. Anything else, including
+        # an HA device you added by hand in the Alexa app, stays. Rooms recorded
+        # before members were tracked fall back to "anything with an HA id".
+        if "members" in record:
+            ours = set(record["members"])
+            is_ours = ours.__contains__
+        else:
+            is_ours = _ha_member_test(plan, record)
+        others = [a for a in group.appliance_ids if not is_ours(a)]
         if others:
             actions.append(RoomAction(
                 UPDATE, area_id, group.name, group_id=group.group_id,
                 appliance_ids=others,
-                removed=[a for a in group.appliance_ids if is_ha(a)], release=True,
+                removed=[a for a in group.appliance_ids if is_ours(a)], release=True,
             ))
         else:
             actions.append(RoomAction(DELETE, area_id, group.name,

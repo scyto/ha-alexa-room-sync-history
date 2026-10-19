@@ -4,6 +4,13 @@ preview:
     Read-only. Builds the HA area -> Alexa room plan and logs it (matched and
     unmatched devices). Never writes to Alexa. Run this first.
   fields:
+    config_entry_id:
+      name: Alexa account
+      description: Which account to use. Only needed if you've set up more than one.
+      required: false
+      selector:
+        config_entry:
+          integration: alexa_room_sync
     area_id:
       name: Area
       description: Limit the preview to a single HA area (optional).
@@ -22,6 +29,13 @@ sync_area:
     test. Writes only if 'apply' is true AND writes are confirmed in the integration
     options; otherwise behaves as a preview.
   fields:
+    config_entry_id:
+      name: Alexa account
+      description: Which account to use. Only needed if you've set up more than one.
+      required: false
+      selector:
+        config_entry:
+          integration: alexa_room_sync
     area_id:
       name: Area
       description: The HA area to sync.
@@ -47,6 +61,13 @@ sync:
     you added to a room are kept. Writes only if 'apply' is true AND writes are
     confirmed in options; otherwise a dry run.
   fields:
+    config_entry_id:
+      name: Alexa account
+      description: Which account to use. Only needed if you've set up more than one.
+      required: false
+      selector:
+        config_entry:
+          integration: alexa_room_sync
     apply:
       name: Apply (write to Alexa)
       description: If true, actually make the changes (requires the options confirmation).
@@ -91,6 +112,13 @@ remove_managed_rooms:
     added yourself (an Echo) keeps that device and is just released. Groups you made
     yourself are never touched.
   fields:
+    config_entry_id:
+      name: Alexa account
+      description: Which account to use. Only needed if you've set up more than one.
+      required: false
+      selector:
+        config_entry:
+          integration: alexa_room_sync
     confirm:
       name: Confirm
       description: Must be true.

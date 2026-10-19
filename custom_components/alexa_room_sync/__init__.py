@@ -46,6 +46,28 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.BUTTON, Platform.SENSOR, Platform.TODO]
 
 
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+_TARGET = {vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
+
+
+def _target_entry(hass: HomeAssistant, call: ServiceCall) -> ConfigEntry:
+    """The account a service call is for. Required once there is more than one."""
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    wanted = call.data.get(ATTR_CONFIG_ENTRY_ID)
+    if wanted:
+        for e in entries:
+            if e.entry_id == wanted:
+                return e
+        raise HomeAssistantError(f"No loaded Alexa Room Sync entry '{wanted}'.")
+    if len(entries) == 1:
+        return entries[0]
+    if not entries:
+        raise HomeAssistantError("Alexa Room Sync isn't loaded.")
+    raise HomeAssistantError(
+        "More than one Alexa account is set up; pass config_entry_id to choose one."
+    )
+
+
 def _login_for_entry(hass: HomeAssistant, entry: ConfigEntry):
     email = entry.data.get(CONF_EMAIL)
     try:
@@ -64,11 +86,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return dict(local_entry.options)
 
     async def _handle_preview(call: ServiceCall) -> ServiceResponse:
+        entry = _target_entry(hass, call)
         return await runner.run_sync(
             hass, entry, only_area_id=call.data.get(ATTR_AREA_ID), apply=False
         )
 
     async def _handle_list_groups(call: ServiceCall) -> ServiceResponse:
+        entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
         groups = await ac.get_groups(login)
         return {
@@ -84,6 +108,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def _handle_probe_endpoints(call: ServiceCall) -> ServiceResponse:
         """Read-only: try candidate device-list endpoints, report which returns data."""
+        entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
         results = await ac.probe_read_endpoints(login)
         for r in results:
@@ -94,6 +119,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _handle_dump_appliances(call: ServiceCall) -> ServiceResponse:
         """Read-only diagnostic: return a redacted structural summary of the raw
         /api/phoenix appliance payload so entity->appliance matching can be fixed."""
+        entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
         raw = await ac.get_raw_appliance_dicts(login)
         sample_count = int(call.data.get("sample_count", 4))
@@ -110,6 +136,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return summary
 
     async def _run_sync(call: ServiceCall, area_id: str | None) -> ServiceResponse:
+        entry = _target_entry(hass, call)
         options = _options(entry)
         apply = not options.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)
         # Per-call override lets an explicit apply happen without editing options,
@@ -138,11 +165,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _handle_sync(call: ServiceCall) -> ServiceResponse:
         return await _run_sync(call, None)
 
+    if hass.services.has_service(DOMAIN, SERVICE_PREVIEW):
+        # Services are domain-wide and pick their account per call, so a second
+        # account's entry only needs its platforms.
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        return True
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_PREVIEW,
         _handle_preview,
-        schema=vol.Schema({vol.Optional(ATTR_AREA_ID): cv.string}),
+        schema=vol.Schema({vol.Optional(ATTR_AREA_ID): cv.string, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
@@ -159,6 +192,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             {
                 vol.Required(ATTR_AREA_ID): cv.string,
                 vol.Optional("apply"): cv.boolean,
+                **_TARGET,
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -167,7 +201,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_SYNC,
         _handle_sync,
-        schema=vol.Schema({vol.Optional("apply"): cv.boolean}),
+        schema=vol.Schema({vol.Optional("apply"): cv.boolean, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
@@ -177,6 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     async def _handle_probe_lists(call: ServiceCall) -> ServiceResponse:
         """Read-only: which Alexa list endpoints still answer for this account?"""
+        entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
         results = await ac.probe_lists(login)
         if call.data.get("raw"):
@@ -192,18 +227,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_PROBE_LISTS,
         _handle_probe_lists,
-        schema=vol.Schema({vol.Optional("raw"): cv.boolean}),
+        schema=vol.Schema({vol.Optional("raw"): cv.boolean, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN,
         "probe_endpoints",
         _handle_probe_endpoints,
-        schema=vol.Schema({vol.Optional("sample_count"): cv.positive_int}),
+        schema=vol.Schema({vol.Optional("sample_count"): cv.positive_int, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
     )
 
     async def _handle_remove_managed_rooms(call: ServiceCall) -> ServiceResponse:
+        entry = _target_entry(hass, call)
         if not call.data.get("confirm"):
             raise HomeAssistantError("Set confirm: true to remove the managed rooms.")
         return {"results": await runner.remove_managed_rooms(hass, entry)}
@@ -212,7 +248,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_REMOVE_MANAGED_ROOMS,
         _handle_remove_managed_rooms,
-        schema=vol.Schema({vol.Required("confirm"): cv.boolean}),
+        schema=vol.Schema({vol.Required("confirm"): cv.boolean, **_TARGET}),
         supports_response=SupportsResponse.OPTIONAL,
     )
 
@@ -226,7 +262,11 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    for service in (
+    others = [
+        e for e in hass.config_entries.async_loaded_entries(DOMAIN)
+        if e.entry_id != entry.entry_id
+    ]
+    for service in () if others else (
         SERVICE_PREVIEW,
         SERVICE_SYNC_AREA,
         SERVICE_SYNC,
