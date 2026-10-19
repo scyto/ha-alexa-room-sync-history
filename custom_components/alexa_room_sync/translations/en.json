@@ -31,7 +31,8 @@
           "confirmed_not_dry_run": "I understand 'apply' will write to my Alexa account",
           "room_prefix": "Alexa group name prefix (optional)",
           "include_climate": "Put thermostats (climate) in Alexa groups",
-          "include_child_locks": "Put child-lock switches in Alexa groups"
+          "include_child_locks": "Put child-lock switches in Alexa groups",
+          "include_echos": "Put Echos in their area's Alexa group (uses the areas set in Alexa Media Player)"
         },
         "sections": {
           "skip": {

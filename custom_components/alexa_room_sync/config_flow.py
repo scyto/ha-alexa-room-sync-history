@@ -25,10 +25,12 @@ from .const import (
     CONF_EMAIL,
     CONF_EXCLUDED_AREAS,
     CONF_INCLUDE_CHILD_LOCKS,
+    CONF_INCLUDE_ECHOS,
     CONF_INCLUDE_CLIMATE,
     CONF_ROOM_PREFIX,
     DEFAULT_DRY_RUN,
     DEFAULT_INCLUDE_CHILD_LOCKS,
+    DEFAULT_INCLUDE_ECHOS,
     DEFAULT_INCLUDE_CLIMATE,
     DEFAULT_ROOM_PREFIX,
     DOMAIN,
@@ -140,6 +142,10 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
                     default=opts.get(
                         CONF_INCLUDE_CHILD_LOCKS, DEFAULT_INCLUDE_CHILD_LOCKS
                     ),
+                ): bool,
+                vol.Optional(
+                    CONF_INCLUDE_ECHOS,
+                    default=opts.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS),
                 ): bool,
                 vol.Required(SKIP_SECTION): section(
                     vol.Schema(

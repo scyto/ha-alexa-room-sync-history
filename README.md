@@ -45,8 +45,9 @@ Everything is read-only until you turn writes on.
 4. Then press **Whole house – Sync** to do the rest. Groups can take a minute or two to show up in the
    Alexa app; pull to refresh or reopen the app.
 
-Afterwards, add each Echo to its group in the Alexa app, so "turn on the lights" works without
-saying the area name. The sync keeps Echos you add.
+So that "turn on the lights" works without saying the area name, each Echo needs to be in its
+area's group. Either turn on **Put Echos in their area's Alexa group** (it uses the area each Echo
+has in Alexa Media Player), or add them by hand in the Alexa app. Echos you add by hand are kept.
 
 ### Device page
 
@@ -78,7 +79,7 @@ HA area. A full sync then:
 
 A single-area sync never touches other groups. Groups the integration didn't create are left alone,
 with one exception: an Alexa group with exactly the area's name, in an area nothing manages yet, is
-adopted. Only Home Assistant devices are matched; Echos and other devices are never added.
+adopted. Only Home Assistant devices are matched, plus Echos if you turn that option on. Nothing else is added.
 
 As safety checks, a sync refuses to run if Alexa returns no devices, or no groups while groups are
 managed. Without that, a glitch on Amazon's side could look like "everything is gone".
@@ -102,6 +103,10 @@ a group in Alexa before a sync if you want it left alone.
 - **Alexa group name prefix**: for example `HA `, to tell synced groups apart.
 - **Include climate entities** (on by default): thermostats go in their area's group.
 - **Include child-lock switches** (off by default).
+- **Put Echos in their area's Alexa group** (off by default): each Alexa Media Player Echo that has
+  an HA area joins that area's group, matched by serial number. Phone apps and speaker groups are
+  skipped. Echos placed this way are managed like HA devices: moved when you change their area, and
+  removed by *Remove the Alexa groups it manages*.
 - **Areas to skip**: areas that never get an Alexa group from a whole-house sync and don't appear
   in *One area*. If a skipped area already has an Alexa group from this integration, the next
   whole-house sync removes it. The `sync_area` action can still target a skipped area directly.
@@ -171,6 +176,7 @@ first.
 - **v0.10.0:** clearer names: *One area* / *Whole house* controls, "area" for HA and "Alexa group" for what's created.
 - **v0.10.1:** *Last result* keeps each run's per-group outcome as attributes, viewable in History.
 - **v0.10.2:** each run's per-group changes are written to the Activity (logbook); the notification is gone.
+- **v0.11.0:** optional *Put Echos in their area's Alexa group*, using Alexa Media Player's areas.
 
 ## Credits & licence
 

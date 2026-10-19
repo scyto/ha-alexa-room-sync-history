@@ -53,6 +53,7 @@ class Appliance:
     appliance_id: str
     friendly_name: str
     entity_id: str | None  # HA entity_id if the appliance carries one (Nabu Casa does)
+    serials: tuple[str, ...] = ()  # Echo serial(s) this appliance belongs to, if any
 
 
 @dataclass
@@ -380,8 +381,18 @@ async def get_appliances(login) -> list[Appliance]:
             appliance_id=aid,
             friendly_name=str(name).strip(),
             entity_id=_extract_entity_id(rec),
+            serials=_device_serials(rec),
         )
     return list(seen.values())
+
+
+def _device_serials(appliance: dict) -> tuple[str, ...]:
+    """Echo serials an appliance belongs to (same field Alexa Media Player reads)."""
+    out = []
+    for ident in appliance.get("alexaDeviceIdentifierList") or []:
+        if isinstance(ident, dict) and ident.get("dmsDeviceSerialNumber"):
+            out.append(str(ident["dmsDeviceSerialNumber"]))
+    return tuple(out)
 
 
 async def get_groups(login) -> list[AlexaGroup]:

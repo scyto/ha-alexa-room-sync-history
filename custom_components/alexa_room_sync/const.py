@@ -31,6 +31,7 @@ query CustomerSmartHome {
                 manufacturerName
                 entityId
                 aliases
+                alexaDeviceIdentifierList
             }
         }
     }
@@ -43,6 +44,7 @@ CONF_DRY_RUN = "dry_run"
 CONF_ROOM_PREFIX = "room_prefix"
 CONF_INCLUDE_CLIMATE = "include_climate"
 CONF_INCLUDE_CHILD_LOCKS = "include_child_locks"
+CONF_INCLUDE_ECHOS = "include_echos"
 CONF_AREA_NAME_OVERRIDES = "area_name_overrides"
 CONF_CONFIRMED = "confirmed_not_dry_run"
 CONF_EXCLUDED_AREAS = "excluded_areas"
@@ -51,6 +53,8 @@ DEFAULT_DRY_RUN = True
 DEFAULT_ROOM_PREFIX = ""
 DEFAULT_INCLUDE_CLIMATE = True
 DEFAULT_INCLUDE_CHILD_LOCKS = False
+DEFAULT_INCLUDE_ECHOS = False
+ALEXA_MEDIA_PLATFORM = "alexa_media"
 
 # Services
 SERVICE_PREVIEW = "preview"
