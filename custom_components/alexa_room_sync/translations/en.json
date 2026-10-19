@@ -19,7 +19,6 @@
       "init": {
         "title": "Alexa Room Sync",
         "menu_options": {
-          "sync_area": "Sync one area",
           "settings": "Settings",
           "remove_rooms": "Remove managed rooms from Alexa"
         }
@@ -50,26 +49,12 @@
         "data": {
           "confirm": "Yes, remove the rooms from Alexa"
         }
-      },
-      "sync_area": {
-        "title": "Sync one area",
-        "description": "Brings the Alexa room for one HA area in line: creates it, or updates its devices and name. Other rooms aren't touched, and this works even for an area on the skip list. Leave Apply off to see what would change first.",
-        "data": {
-          "area_id": "Area",
-          "apply": "Apply (write to Alexa)"
-        }
       }
     },
     "abort": {
       "rooms_removed": "Done.\n\n{summary}",
       "remove_cancelled": "Nothing was changed.",
-      "remove_failed": "Couldn't remove the rooms: {error}",
-      "area_previewed": "Preview only. Nothing was changed.\n\n{summary}",
-      "area_synced": "Done.\n\n{summary}",
-      "sync_failed": "The sync didn't run: {error}"
-    },
-    "error": {
-      "writes_not_confirmed": "Writes aren't enabled. Tick \"I understand 'apply' will write to my Alexa account\" in Settings first."
+      "remove_failed": "Couldn't remove the rooms: {error}"
     }
   },
   "entity": {
@@ -79,11 +64,22 @@
       },
       "sync": {
         "name": "Sync rooms now"
+      },
+      "preview_area": {
+        "name": "Preview selected area"
+      },
+      "sync_area": {
+        "name": "Sync selected area"
       }
     },
     "sensor": {
       "last_result": {
         "name": "Last result"
+      }
+    },
+    "select": {
+      "area_to_sync": {
+        "name": "Area to sync"
       }
     }
   }

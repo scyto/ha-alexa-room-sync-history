@@ -81,9 +81,11 @@ adopted (useful after upgrading from a create-only version).
 
 ### Syncing one area
 
-**Configure > Sync one area** lets you pick an area and either preview it (Apply off) or sync
-just that room (Apply on). Other rooms are left alone, and it works for areas on the skip list.
-The `alexa_room_sync.sync_area` action does the same from scripts.
+On the integration's device page, pick an area in **Area to sync**, then press **Preview
+selected area** to see what would change, or **Sync selected area** to sync just that room
+(it only writes when dry-run is off and writes are confirmed). Other rooms are left alone, and
+it works for areas on the skip list. The `alexa_room_sync.sync_area` action does the same from
+scripts.
 
 ### Removing it
 

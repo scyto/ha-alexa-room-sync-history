@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import RestoreSensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -19,7 +19,7 @@ async def async_setup_entry(
     async_add_entities([LastResultSensor(entry)])
 
 
-class LastResultSensor(SensorEntity):
+class LastResultSensor(RestoreSensor):
     """Short summary of the last Preview or Sync, e.g. 'Preview: 19 create, 1 unchanged.'"""
 
     _attr_has_entity_name = True
@@ -37,8 +37,11 @@ class LastResultSensor(SensorEntity):
         )
 
     async def async_added_to_hass(self) -> None:
-        self._attr_native_value = runner.last_result(self.hass, self._entry) or (
-            "Press Preview; the result appears in Notifications (the bell)."
+        last = await self.async_get_last_sensor_data()
+        self._attr_native_value = (
+            runner.last_result(self.hass, self._entry)
+            or (last.native_value if last else None)
+            or "Press Preview; the result appears in Notifications (the bell)."
         )
         self.async_on_remove(
             async_dispatcher_connect(
