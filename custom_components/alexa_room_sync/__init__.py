@@ -34,6 +34,7 @@ from .const import (
     SERVICE_LIST_GROUPS,
     SERVICE_PREVIEW,
     SERVICE_PROBE_LISTS,
+    SERVICE_REMOVE_MANAGED_ROOMS,
     SERVICE_SYNC,
     SERVICE_SYNC_AREA,
 )
@@ -202,6 +203,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         supports_response=SupportsResponse.OPTIONAL,
     )
 
+    async def _handle_remove_managed_rooms(call: ServiceCall) -> ServiceResponse:
+        if not call.data.get("confirm"):
+            raise HomeAssistantError("Set confirm: true to remove the managed rooms.")
+        return {"results": await runner.remove_managed_rooms(hass, entry)}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REMOVE_MANAGED_ROOMS,
+        _handle_remove_managed_rooms,
+        schema=vol.Schema({vol.Required("confirm"): cv.boolean}),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -219,8 +233,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_LIST_GROUPS,
         SERVICE_DUMP_APPLIANCES,
         SERVICE_PROBE_LISTS,
+        SERVICE_REMOVE_MANAGED_ROOMS,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)
     hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Removing the integration leaves Alexa's rooms alone; only our record goes.
+
+    Use Configure > Remove managed rooms first if you want the rooms gone too.
+    """
+    await runner.forget_managed_rooms(hass, entry)

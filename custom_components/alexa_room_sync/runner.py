@@ -72,6 +72,33 @@ async def run_sync(
     return response
 
 
+async def remove_managed_rooms(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> dict[str, str]:
+    """Undo every room this integration manages in Alexa. Returns name -> result."""
+    store = _store(hass, entry)
+    data = await store.async_load() or {}
+    managed: dict[str, dict] = dict(data.get("rooms", {}))
+    if not managed:
+        return {}
+    try:
+        login = ac.get_login_obj(hass, entry.data.get(CONF_EMAIL))
+        groups = await ac.get_groups(login)
+    except ac.AlexaClientError as err:
+        raise HomeAssistantError(str(err)) from err
+    plan = sync_mod.SyncPlan(rooms=[], existing_group_names=[], total_exposed=0,
+                             total_in_area=0, groups=groups)
+    actions = sync_mod.teardown(groups, managed)
+    results = await sync_mod.apply_actions(login, plan, actions, managed)
+    await store.async_save({"rooms": managed})
+    return results
+
+
+async def forget_managed_rooms(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the saved record of managed rooms. Alexa itself is not touched."""
+    await _store(hass, entry).async_remove()
+
+
 def _response(plan, actions, results, managed, *, dry_run: bool) -> dict[str, Any]:
     response: dict[str, Any] = {
         "dry_run": dry_run,

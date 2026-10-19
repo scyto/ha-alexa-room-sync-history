@@ -17,6 +17,13 @@
   "options": {
     "step": {
       "init": {
+        "title": "Alexa Room Sync",
+        "menu_options": {
+          "settings": "Settings",
+          "remove_rooms": "Remove managed rooms from Alexa"
+        }
+      },
+      "settings": {
         "title": "Alexa Room Sync options",
         "description": "By default nothing is written to Alexa. To let the sync create rooms, turn OFF dry-run and turn ON the write confirmation.",
         "data": {
@@ -30,7 +37,19 @@
         "data_description": {
           "excluded_areas": "These areas never get an Alexa room from a full sync. Running sync_area on one of them still works."
         }
+      },
+      "remove_rooms": {
+        "title": "Remove managed rooms from Alexa",
+        "description": "Deletes the Alexa rooms this integration created. A room that also holds something you added yourself, like an Echo, is kept with just those devices. Groups you made yourself are never touched. Removing the integration on its own does not change Alexa.",
+        "data": {
+          "confirm": "Yes, remove the rooms from Alexa"
+        }
       }
+    },
+    "abort": {
+      "rooms_removed": "Done.\n\n{summary}",
+      "remove_cancelled": "Nothing was changed.",
+      "remove_failed": "Couldn't remove the rooms: {error}"
     }
   },
   "entity": {

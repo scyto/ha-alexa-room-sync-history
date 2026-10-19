@@ -79,6 +79,15 @@ Alexa app) are always kept. Groups it didn't create are left alone, with one exc
 an Alexa group has exactly the room's name and no room is managed for that area yet, it is
 adopted (useful after upgrading from a create-only version).
 
+### Removing it
+
+Removing the integration does **not** change Alexa. Your rooms keep working, and a reinstall
+picks them up again by name. Only the integration's saved record of its rooms is deleted.
+
+To remove the rooms too, go to **Configure > Remove managed rooms from Alexa** first, or call
+`alexa_room_sync.remove_managed_rooms` with `confirm: true`. Rooms that also hold something
+you added yourself, such as an Echo, keep it and are just released.
+
 ### Buttons
 
 The integration adds a **Preview room sync** button, which shows the planned changes as a

@@ -411,6 +411,33 @@ def reconcile(
     return actions
 
 
+def teardown(groups: list[ac.AlexaGroup], managed: dict[str, dict]) -> list[RoomAction]:
+    """Steps to undo every managed room: delete it, or strip HA devices if it holds
+    something you added yourself (an Echo), then stop managing it."""
+    by_id = {g.group_id: g for g in groups}
+    plan = SyncPlan(rooms=[], existing_group_names=[], total_exposed=0,
+                    total_in_area=0, groups=groups)
+    actions: list[RoomAction] = []
+    for area_id, record in managed.items():
+        group = by_id.get(record.get("group_id"))
+        if group is None:
+            actions.append(RoomAction(FORGET, area_id, record.get("name", area_id),
+                                      group_id=record.get("group_id", "")))
+            continue
+        is_ha = _ha_member_test(plan, record)
+        others = [a for a in group.appliance_ids if not is_ha(a)]
+        if others:
+            actions.append(RoomAction(
+                UPDATE, area_id, group.name, group_id=group.group_id,
+                appliance_ids=others,
+                removed=[a for a in group.appliance_ids if is_ha(a)], release=True,
+            ))
+        else:
+            actions.append(RoomAction(DELETE, area_id, group.name,
+                                      group_id=group.group_id, note="teardown"))
+    return actions
+
+
 async def apply_actions(
     login,
     plan: SyncPlan,

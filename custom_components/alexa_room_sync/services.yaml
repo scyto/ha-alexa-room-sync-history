@@ -83,3 +83,17 @@ probe_lists:
     Read-only. Tries the candidate Alexa list endpoints (/api/namedLists and friends) and
     reports which still answer, how many rows they return and the list names — never the
     contents of a list. Use this when the Alexa to-do entities are missing or empty.
+
+remove_managed_rooms:
+  name: Remove managed rooms from Alexa
+  description: >-
+    Deletes the Alexa rooms this integration created. A room that also holds a device you
+    added yourself (an Echo) keeps that device and is just released. Groups you made
+    yourself are never touched.
+  fields:
+    confirm:
+      name: Confirm
+      description: Must be true.
+      required: true
+      selector:
+        boolean:
