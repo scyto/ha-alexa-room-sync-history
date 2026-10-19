@@ -32,5 +32,15 @@
         }
       }
     }
+  },
+  "entity": {
+    "button": {
+      "preview": {
+        "name": "Preview room sync"
+      },
+      "sync": {
+        "name": "Sync rooms now"
+      }
+    }
   }
 }

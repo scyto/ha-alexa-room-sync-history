@@ -65,8 +65,25 @@ Everything is **dry-run by default**. Nothing is written to Alexa until you expl
    the Alexa app (or via `DELETE /api/phoenix/group/{id}`) — creation is fully reversible.
 4. **Do the rest.** `alexa_room_sync.sync` with `apply: true`.
 
-Existing Alexa groups whose **name matches** a room are **skipped** — never duplicated, edited, or
-deleted. This integration only ever *creates* rooms; removing them is a manual Alexa-app action.
+### What a sync changes
+
+The integration remembers which Alexa rooms it created, keyed by HA area. A sync then:
+
+- **creates** a room for an area that doesn't have one yet;
+- **updates** a managed room when the area's devices change or the area is renamed;
+- **deletes** a managed room when its area is added to *Areas to skip*, removed, or has no
+  exposed devices left (full `sync` only; `sync_area` never deletes other rooms).
+
+Devices that aren't from Home Assistant (for example an Echo you put in the room in the
+Alexa app) are always kept. Groups it didn't create are left alone, with one exception: if
+an Alexa group has exactly the room's name and no room is managed for that area yet, it is
+adopted (useful after upgrading from a create-only version).
+
+### Buttons
+
+The integration adds a **Preview room sync** button, which shows the planned changes as a
+notification and never writes. It also adds **Sync rooms now**, which runs a full sync when
+dry-run is off and writes are confirmed, and otherwise just previews.
 
 ## Services
 

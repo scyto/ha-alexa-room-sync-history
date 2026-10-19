@@ -1,0 +1,60 @@
+"""Preview / Sync now buttons, so a sync doesn't need Developer Tools."""
+
+from __future__ import annotations
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from . import runner
+from .const import CONF_CONFIRMED, CONF_DRY_RUN, DEFAULT_DRY_RUN, DOMAIN
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    async_add_entities([PreviewButton(entry), SyncButton(entry)])
+
+
+class _RoomSyncButton(ButtonEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: ConfigEntry, key: str) -> None:
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_translation_key = key
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Alexa Room Sync",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+
+class PreviewButton(_RoomSyncButton):
+    """Show what a full sync would do, as a notification. Never writes."""
+
+    _attr_icon = "mdi:eye-outline"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry, "preview")
+
+    async def async_press(self) -> None:
+        await runner.run_sync(self.hass, self._entry, apply=False, notify=True)
+
+
+class SyncButton(_RoomSyncButton):
+    """Run a full sync. Still a preview while dry-run is on or writes aren't confirmed."""
+
+    _attr_icon = "mdi:home-sync-outline"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry, "sync")
+
+    async def async_press(self) -> None:
+        options = self._entry.options
+        apply = bool(options.get(CONF_CONFIRMED)) and not options.get(
+            CONF_DRY_RUN, DEFAULT_DRY_RUN
+        )
+        await runner.run_sync(self.hass, self._entry, apply=apply, notify=True)

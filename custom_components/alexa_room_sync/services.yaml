@@ -41,13 +41,15 @@ sync_area:
 sync:
   name: Sync all areas
   description: >-
-    Create Alexa rooms for every HA area with exposed devices. Existing groups with a
-    matching name are skipped (never duplicated or deleted). Writes only if 'apply' is
-    true AND writes are confirmed in options; otherwise a dry run.
+    Bring Alexa rooms in line with HA areas: create missing rooms, update the devices
+    and name of rooms this integration manages, and delete managed rooms whose area is
+    skipped, removed or empty. Groups you made yourself are never touched, and Echos
+    you added to a room are kept. Writes only if 'apply' is true AND writes are
+    confirmed in options; otherwise a dry run.
   fields:
     apply:
       name: Apply (write to Alexa)
-      description: If true, actually create the rooms (requires the options confirmation).
+      description: If true, actually make the changes (requires the options confirmation).
       required: false
       default: false
       selector:

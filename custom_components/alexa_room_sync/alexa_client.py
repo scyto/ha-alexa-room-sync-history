@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -62,6 +62,7 @@ class AlexaGroup:
     group_id: str
     name: str
     appliance_ids: list[str]
+    raw: dict = field(default_factory=dict)  # Amazon's own document, echoed back on update
 
 
 def get_login_obj(hass: HomeAssistant, email: str | None = None):
@@ -393,6 +394,7 @@ async def get_groups(login) -> list[AlexaGroup]:
                 group_id=str(gid),
                 name=str(g.get("name", "")).strip(),
                 appliance_ids=list(g.get("applianceIds", []) or []),
+                raw=g,
             )
         )
     return groups
@@ -408,6 +410,27 @@ async def create_group(login, name: str, appliance_ids: list[str]) -> dict:
         EP_GROUP,
         data={"applianceIds": appliance_ids, "name": name},
     )
+
+
+async def update_group(
+    login, group: AlexaGroup, name: str, appliance_ids: list[str]
+) -> Any:
+    """Replace a group's name and members, sending Amazon's own document back.
+
+    Same resource as create/delete; the body is the group as GET returned it, with
+    only ``name`` and ``applianceIds`` changed, so fields we don't know about survive.
+    """
+    if not group.group_id:
+        raise AlexaClientError("update_group requires a group_id")
+    if not appliance_ids:
+        raise AlexaClientError(f"Refusing to empty group '{group.name}'; delete it instead")
+    body = {**group.raw, "name": name, "applianceIds": appliance_ids}
+    return await _request(login, "put", f"{EP_GROUP}/{group.group_id}", data=body)
+
+
+def entity_id_from_appliance_id(appliance_id: str) -> str | None:
+    """The HA entity_id behind an Alexa applianceId, or None for non-HA devices (Echos)."""
+    return _entity_id_from_alexa_id(appliance_id)
 
 
 async def delete_group(login, group_id: str) -> bool:

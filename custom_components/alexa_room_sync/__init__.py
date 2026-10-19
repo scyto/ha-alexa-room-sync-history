@@ -22,7 +22,7 @@ from homeassistant.helpers import config_validation as cv
 
 from . import alexa_client as ac
 from . import diag as diag_mod
-from . import sync as sync_mod
+from . import runner
 from .const import (
     ATTR_AREA_ID,
     CONF_CONFIRMED,
@@ -42,7 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Alexa's named lists become HA to-do entities (see todo.py). Kept in this integration
 # rather than a second one because the authenticated session is already here.
-PLATFORMS = [Platform.TODO]
+PLATFORMS = [Platform.BUTTON, Platform.TODO]
 
 
 def _login_for_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -63,12 +63,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return dict(local_entry.options)
 
     async def _handle_preview(call: ServiceCall) -> ServiceResponse:
-        login = _login_for_entry(hass, entry)
-        area_id = call.data.get(ATTR_AREA_ID)
-        plan = await sync_mod.build_plan(hass, login, _options(entry), only_area_id=area_id)
-        for line in plan.summary_lines():
-            _LOGGER.info("[preview] %s", line)
-        return _plan_to_response(plan, dry_run=True, results=None)
+        return await runner.run_sync(
+            hass, entry, only_area_id=call.data.get(ATTR_AREA_ID), apply=False
+        )
 
     async def _handle_list_groups(call: ServiceCall) -> ServiceResponse:
         login = _login_for_entry(hass, entry)
@@ -112,9 +109,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return summary
 
     async def _run_sync(call: ServiceCall, area_id: str | None) -> ServiceResponse:
-        login = _login_for_entry(hass, entry)
         options = _options(entry)
-        dry_run = options.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)
+        apply = not options.get(CONF_DRY_RUN, DEFAULT_DRY_RUN)
         # Per-call override lets an explicit apply happen without editing options,
         # but ONLY if the user has also confirmed writes in options.
         if call.data.get("apply") is True:
@@ -123,23 +119,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "Refusing to write: enable 'I understand this writes to my Alexa "
                     "account' in the integration options before using apply:true."
                 )
-            dry_run = False
-
-        plan = await sync_mod.build_plan(hass, login, options, only_area_id=area_id)
-        for line in plan.summary_lines():
-            _LOGGER.info("[sync%s] %s", "" if not area_id else f":{area_id}", line)
-
-        if dry_run:
+            apply = True
+        elif apply and not options.get(CONF_CONFIRMED):
+            apply = False
+        if not apply:
             _LOGGER.warning(
-                "Alexa Room Sync is in DRY-RUN — no groups created. "
+                "Alexa Room Sync is in DRY-RUN; nothing written. "
                 "Set apply:true (with options confirmation) to write."
             )
-            return _plan_to_response(plan, dry_run=True, results=None)
-
-        results = await sync_mod.apply_plan(hass, login, plan)
-        for name, res in results.items():
-            _LOGGER.info("[applied] %s: %s", name, res)
-        return _plan_to_response(plan, dry_run=False, results=results)
+        return await runner.run_sync(hass, entry, only_area_id=area_id, apply=apply)
 
     # Real coroutine functions, not lambdas: HA only awaits a handler it can
     # recognise as async, so a lambda returning a coroutine never runs.
@@ -216,27 +204,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
-
-
-def _plan_to_response(plan, dry_run: bool, results) -> ServiceResponse:
-    response: dict = {
-        "dry_run": dry_run,
-        "total_exposed": plan.total_exposed,
-        "total_in_area": plan.total_in_area,
-        "existing_groups": plan.existing_group_names,
-        "rooms": [
-            {
-                "area_id": r.area_id,
-                "room_name": r.room_name,
-                "matched": r.matched,
-                "unmatched": r.unmatched,
-            }
-            for r in plan.rooms
-        ],
-    }
-    if results is not None:
-        response["results"] = results
-    return response
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

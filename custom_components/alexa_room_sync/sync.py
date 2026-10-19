@@ -53,6 +53,7 @@ class SyncPlan:
     existing_group_names: list[str]
     total_exposed: int
     total_in_area: int
+    groups: list[ac.AlexaGroup] = field(default_factory=list)
 
     def summary_lines(self) -> list[str]:
         lines = [
@@ -168,6 +169,10 @@ async def build_plan(
     dev_reg = dr.async_get(hass)
 
     appliances = await ac.get_appliances(login)
+    if not appliances:
+        # An empty list means the device lookup failed, not that you have no devices;
+        # reconciling against it would delete every managed room.
+        raise ac.AlexaClientError("Alexa returned no smart-home devices; not syncing")
     by_entity = {a.entity_id: a.appliance_id for a in appliances if a.entity_id}
     by_name: dict[str, str] = {}
     name_counts: dict[str, int] = {}
@@ -236,45 +241,183 @@ async def build_plan(
         existing_group_names=existing_names,
         total_exposed=total_exposed,
         total_in_area=total_in_area,
+        groups=existing,
     )
 
 
-async def apply_plan(
-    hass: HomeAssistant,
+CREATE = "create"
+UPDATE = "update"
+DELETE = "delete"
+UNCHANGED = "unchanged"
+SKIP = "skip"
+FORGET = "forget"
+
+
+@dataclass
+class RoomAction:
+    """One reconcile step for one HA area."""
+
+    kind: str
+    area_id: str
+    room_name: str
+    group_id: str = ""
+    appliance_ids: list[str] = field(default_factory=list)  # full member list to write
+    added: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
+    renamed_from: str = ""
+    adopted: bool = False
+    note: str = ""
+
+    def describe(self) -> str:
+        if self.kind == CREATE:
+            return f"create with {len(self.appliance_ids)} device(s)"
+        if self.kind == UPDATE:
+            bits = []
+            if self.added:
+                bits.append(f"+{len(self.added)}")
+            if self.removed:
+                bits.append(f"-{len(self.removed)}")
+            if self.renamed_from:
+                bits.append(f"renamed from '{self.renamed_from}'")
+            return "update " + (", ".join(bits) or "(no member change)")
+        if self.kind == DELETE:
+            return "delete" + (f" ({self.note})" if self.note else "")
+        if self.kind == FORGET:
+            return "forget (group already gone from Alexa)"
+        if self.kind == UNCHANGED:
+            return "unchanged" + (" (adopted)" if self.adopted else "")
+        return f"skip ({self.note})"
+
+
+def _is_ha_member(appliance_id: str) -> bool:
+    return ac.entity_id_from_appliance_id(appliance_id) is not None
+
+
+def reconcile(
+    plan: SyncPlan,
+    managed: dict[str, dict],
+    only_area_id: str | None = None,
+) -> list[RoomAction]:
+    """Work out create/update/delete steps. Pure: no I/O, so it can be tested offline.
+
+    ``managed`` maps area_id -> {"group_id", "name"} for the rooms this integration
+    created (or adopted). Only those are ever updated or deleted; a hand-made group
+    is only touched if it has exactly the room's name and nothing manages that area
+    yet, in which case it is adopted. Non-HA members of a group (Echos you added in
+    the Alexa app) are always kept.
+    """
+    by_id = {g.group_id: g for g in plan.groups}
+    by_name = {g.name: g for g in plan.groups}
+    claimed = {m.get("group_id") for m in managed.values()}
+    actions: list[RoomAction] = []
+
+    for room in plan.rooms:
+        record = managed.get(room.area_id)
+        group = by_id.get(record["group_id"]) if record else None
+        adopted = False
+        if group is None:
+            candidate = by_name.get(room.room_name)
+            if candidate is not None and candidate.group_id not in claimed:
+                group, adopted = candidate, True
+        want = list(dict.fromkeys(room.appliance_ids))
+
+        if group is None:
+            if want:
+                actions.append(RoomAction(CREATE, room.area_id, room.room_name,
+                                          appliance_ids=want))
+            else:
+                actions.append(RoomAction(SKIP, room.area_id, room.room_name,
+                                          note="no matched devices"))
+            continue
+
+        others = [a for a in group.appliance_ids if not _is_ha_member(a)]
+        have = [a for a in group.appliance_ids if _is_ha_member(a)]
+        added = [a for a in want if a not in have]
+        removed = [a for a in have if a not in want]
+        renamed_from = group.name if group.name != room.room_name else ""
+
+        if not want and not others:
+            actions.append(RoomAction(DELETE, room.area_id, room.room_name,
+                                      group_id=group.group_id, adopted=adopted,
+                                      note="area has no matched devices"))
+        elif added or removed or renamed_from:
+            actions.append(RoomAction(UPDATE, room.area_id, room.room_name,
+                                      group_id=group.group_id,
+                                      appliance_ids=others + want, added=added,
+                                      removed=removed, renamed_from=renamed_from,
+                                      adopted=adopted))
+        else:
+            actions.append(RoomAction(UNCHANGED, room.area_id, room.room_name,
+                                      group_id=group.group_id, adopted=adopted))
+
+    if only_area_id is None:
+        planned = {r.area_id for r in plan.rooms}
+        for area_id, record in managed.items():
+            if area_id in planned:
+                continue
+            group = by_id.get(record.get("group_id"))
+            name = record.get("name", area_id)
+            if group is None:
+                actions.append(RoomAction(FORGET, area_id, name,
+                                          group_id=record.get("group_id", "")))
+            else:
+                actions.append(RoomAction(DELETE, area_id, group.name,
+                                          group_id=group.group_id,
+                                          note="area skipped, removed or empty"))
+    return actions
+
+
+async def apply_actions(
     login,
     plan: SyncPlan,
+    actions: list[RoomAction],
+    managed: dict[str, dict],
 ) -> dict[str, str]:
-    """Create groups for rooms that don't already exist. Returns name -> result.
-
-    Conservative by design: rooms whose name already exists in Alexa are SKIPPED
-    (never duplicated, never edited, never deleted). Empty rooms are skipped.
-    """
+    """Carry out the actions, updating ``managed`` in place. Returns name -> result."""
+    by_id = {g.group_id: g for g in plan.groups}
     results: dict[str, str] = {}
-    for room in plan.rooms:
-        if not room.appliance_ids:
-            results[room.room_name] = "skipped: no matched devices"
-            continue
-        if room.room_name in plan.existing_group_names:
-            results[room.room_name] = (
-                "skipped: a group with this name already exists (not modified)"
-            )
-            continue
+    for action in actions:
+        label = action.room_name
         try:
-            resp = await ac.create_group(login, room.room_name, room.appliance_ids)
-            gid = ""
-            if isinstance(resp, dict):
-                gid = resp.get("groupId") or resp.get("id") or ""
-            results[room.room_name] = (
-                f"created with {len(room.appliance_ids)} device(s)"
-                + (f" (groupId={gid})" if gid else "")
-            )
-            _LOGGER.info(
-                "Alexa Room Sync: created room '%s' (%d devices)%s",
-                room.room_name,
-                len(room.appliance_ids),
-                f" groupId={gid}" if gid else "",
-            )
+            if action.kind == CREATE:
+                resp = await ac.create_group(login, action.room_name, action.appliance_ids)
+                gid = ""
+                if isinstance(resp, dict):
+                    gid = resp.get("groupId") or resp.get("id") or ""
+                if not gid:
+                    # The create call doesn't always echo the id; look it up by name.
+                    for group in await ac.get_groups(login):
+                        if group.name == action.room_name:
+                            gid = group.group_id
+                            break
+                if gid:
+                    managed[action.area_id] = {"group_id": gid, "name": action.room_name}
+                results[label] = f"created with {len(action.appliance_ids)} device(s)"
+                if not gid:
+                    results[label] += " (no groupId returned; adopted by name on next sync)"
+            elif action.kind == UPDATE:
+                await ac.update_group(login, by_id[action.group_id], action.room_name,
+                                      action.appliance_ids)
+                managed[action.area_id] = {"group_id": action.group_id,
+                                           "name": action.room_name}
+                results[label] = action.describe().replace("update", "updated", 1)
+            elif action.kind == DELETE:
+                await ac.delete_group(login, action.group_id)
+                managed.pop(action.area_id, None)
+                results[label] = "deleted"
+            elif action.kind == FORGET:
+                managed.pop(action.area_id, None)
+                results[label] = action.describe()
+            elif action.kind == UNCHANGED:
+                managed[action.area_id] = {"group_id": action.group_id,
+                                           "name": action.room_name}
+                results[label] = action.describe()
+            else:
+                results[label] = action.describe()
         except ac.AlexaClientError as err:
-            results[room.room_name] = f"ERROR: {err}"
-            _LOGGER.error("Alexa Room Sync: failed to create '%s': %s", room.room_name, err)
+            results[label] = f"ERROR: {err}"
+            _LOGGER.error("Alexa Room Sync: %s '%s' failed: %s",
+                          action.kind, action.room_name, err)
+        else:
+            _LOGGER.info("Alexa Room Sync: %s: %s", label, results[label])
     return results
