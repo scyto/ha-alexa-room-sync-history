@@ -233,9 +233,17 @@ async def _fetch_appliance_tree(login) -> Any:
     return tree
 
 
-async def get_raw_appliance_dicts(login) -> list[dict]:
-    """Return every raw appliance record dict (unflattened) for diagnostics."""
-    tree = await _fetch_appliance_records(login)
+async def get_raw_appliance_dicts(login, source: str = "phoenix") -> list[dict]:
+    """Every raw appliance record (unflattened) from one source, for diagnostics.
+
+    ``source`` is "phoenix" (``GET /api/phoenix``) or "graphql" (the Alexa app's
+    device query that the sync actually uses). They are kept apart so a report
+    says which one is broken.
+    """
+    if source == "graphql":
+        tree: Any = await _fetch_gql_appliances(login)
+    else:
+        tree = await _fetch_appliance_tree(login)
     out: list[dict] = []
     seen_ids: set[str] = set()
     for rec in _walk_appliance_dicts(tree):

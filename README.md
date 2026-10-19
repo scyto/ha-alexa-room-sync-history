@@ -158,6 +158,7 @@ first.
 - **v0.9.0:** *Area to sync* picker and per-area buttons on the device page; *Last result* and the
   picked area survive restarts.
 - **v0.9.1:** *Area to sync* lists only areas that get a room.
+- **v0.9.2:** `dump_appliances` reports the GraphQL and `/api/phoenix` sources separately.
 
 ## Credits & licence
 

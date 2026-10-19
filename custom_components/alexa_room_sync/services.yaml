@@ -79,9 +79,10 @@ sync:
 dump_appliances:
   name: Dump Alexa appliances (read-only diagnostic)
   description: >-
-    Read-only. Returns a redacted structural summary of the raw /api/phoenix appliance
-    payload (key frequencies, where an HA entity_id appears, a few redacted samples) to
-    debug entity->appliance matching. Never writes to Alexa.
+    Read-only. Returns a redacted structural summary of each device-list source, the
+    GraphQL query the sync uses and the legacy /api/phoenix (key frequencies, where an HA
+    entity_id appears, a few redacted samples), to debug entity->appliance matching.
+    Never writes to Alexa.
   fields:
     sample_count:
       name: Sample count

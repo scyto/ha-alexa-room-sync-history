@@ -117,23 +117,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return {"probes": results}
 
     async def _handle_dump_appliances(call: ServiceCall) -> ServiceResponse:
-        """Read-only diagnostic: return a redacted structural summary of the raw
-        /api/phoenix appliance payload so entity->appliance matching can be fixed."""
+        """Read-only diagnostic: redacted summaries of what each device-list source
+        returns (the GraphQL query the sync uses, and the legacy /api/phoenix), so
+        entity->appliance matching problems can be traced to the right one."""
         entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
-        raw = await ac.get_raw_appliance_dicts(login)
         sample_count = int(call.data.get("sample_count", 4))
-        summary = diag_mod.summarize(raw, sample_count=sample_count)
-        if not raw:
-            summary["raw_phoenix_shape"] = await ac.get_raw_phoenix_shape(login)
-        _LOGGER.info(
-            "[dump_appliances] %d appliances, %d carry an embedded entity_id; "
-            "entity_id locations: %s",
-            summary["appliance_count"],
-            summary["appliances_with_embedded_entity_id"],
-            [loc["json_path"] for loc in summary["entity_id_locations"]],
-        )
-        return summary
+        report: dict = {}
+        for source in ("graphql", "phoenix"):
+            try:
+                raw = await ac.get_raw_appliance_dicts(login, source=source)
+            except ac.AlexaClientError as err:
+                report[source] = {"error": str(err)}
+                continue
+            summary = diag_mod.summarize(raw, sample_count=sample_count)
+            if source == "phoenix" and not raw:
+                summary["raw_phoenix_shape"] = await ac.get_raw_phoenix_shape(login)
+            report[source] = summary
+            _LOGGER.info(
+                "[dump_appliances:%s] %d appliances, %d carry an embedded entity_id",
+                source,
+                summary["appliance_count"],
+                summary["appliances_with_embedded_entity_id"],
+            )
+        return report
 
     async def _run_sync(call: ServiceCall, area_id: str | None) -> ServiceResponse:
         entry = _target_entry(hass, call)
@@ -208,6 +215,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         SERVICE_DUMP_APPLIANCES,
         _handle_dump_appliances,
+        schema=vol.Schema({vol.Optional("sample_count"): cv.positive_int, **_TARGET}),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     async def _handle_probe_lists(call: ServiceCall) -> ServiceResponse:
         """Read-only: which Alexa list endpoints still answer for this account?"""
