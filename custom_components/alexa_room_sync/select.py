@@ -1,4 +1,8 @@
-"""'Area to sync' picker on the device page, used by the per-area buttons."""
+"""'Area to sync' picker on the device page, used by the per-area buttons.
+
+It lists only areas a full sync would give a room, so skipped areas and areas
+with nothing exposed to Alexa don't clutter it.
+"""
 
 from __future__ import annotations
 
@@ -6,11 +10,13 @@ from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import DOMAIN
+from .sync import syncable_area_ids
 
 
 async def async_setup_entry(
@@ -48,19 +54,24 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
         last = await self.async_get_last_state()
         if last and last.state in self._attr_options:
             self._set(last.state)
-        self.async_on_remove(
-            self.hass.bus.async_listen(ar.EVENT_AREA_REGISTRY_UPDATED, self._areas_changed)
-        )
+        # Area renames, entity area moves and Alexa exposure changes all land here.
+        for event in (ar.EVENT_AREA_REGISTRY_UPDATED, er.EVENT_ENTITY_REGISTRY_UPDATED):
+            self.async_on_remove(self.hass.bus.async_listen(event, self._areas_changed))
 
     @callback
     def _areas_changed(self, _event: Event) -> None:
+        before = (self._attr_options, self._attr_current_option)
         self._refresh_options()
         area = ar.async_get(self.hass).async_get_area(self._area_id) if self._area_id else None
-        self._set(area.name if area else None)
-        self.async_write_ha_state()
+        self._set(area.name if area and area.name in self._attr_options else None)
+        if (self._attr_options, self._attr_current_option) != before:
+            self.async_write_ha_state()
 
     def _refresh_options(self) -> None:
-        names = [a.name for a in ar.async_get(self.hass).async_list_areas()]
+        wanted = syncable_area_ids(self.hass, dict(self._entry.options))
+        names = [
+            a.name for a in ar.async_get(self.hass).async_list_areas() if a.id in wanted
+        ]
         self._attr_options = sorted(names, key=str.lower)
 
     def _set(self, name: str | None) -> None:

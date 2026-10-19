@@ -54,9 +54,9 @@ saying the room name. The sync keeps Echos you add.
 |---|---|
 | **Preview room sync** | Shows what a full sync would change. Never writes. |
 | **Sync rooms now** | Full sync. Writes only when dry-run is off and writes are confirmed; otherwise it previews. |
-| **Area to sync** | Picks the area for the two buttons below. Follows renames. |
+| **Area to sync** | Picks the area for the two buttons below. Lists only areas that get a room (something exposed to Alexa, not skipped). Follows renames. |
 | **Preview selected area** | Shows what syncing that one area would change. |
-| **Sync selected area** | Syncs only that area's room (same write rules). Works for skipped areas too. |
+| **Sync selected area** | Syncs only that area's room (same write rules). |
 | **Last result** | One-line summary of the last run; the details are in Notifications. |
 
 ### What a sync changes
@@ -157,6 +157,7 @@ first.
 - **v0.8.0:** *Sync one area* in Configure (moved to the device page in 0.9.0).
 - **v0.9.0:** *Area to sync* picker and per-area buttons on the device page; *Last result* and the
   picked area survive restarts.
+- **v0.9.1:** *Area to sync* lists only areas that get a room.
 
 ## Credits & licence
 

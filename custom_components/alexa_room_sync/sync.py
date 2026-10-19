@@ -112,6 +112,28 @@ def _area_for_entity(
     return None
 
 
+def syncable_area_ids(hass: HomeAssistant, options: dict) -> set[str]:
+    """Areas a full sync would give a room: an exposed device of a room-worthy
+    domain in it, and not on the skip list. Registry-only, so it's cheap."""
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    excluded = set(options.get(CONF_EXCLUDED_AREAS) or [])
+    areas: set[str] = set()
+    for entry in ent_reg.entities.values():
+        if not _should_expose(hass, entry.entity_id):
+            continue
+        area_id = _area_for_entity(hass, ent_reg, dev_reg, entry.entity_id)
+        if not area_id or area_id in excluded or area_id in areas:
+            continue
+        state = hass.states.get(entry.entity_id)
+        friendly = (
+            state.attributes.get("friendly_name") if state else None
+        ) or entry.name or entry.original_name or entry.entity_id
+        if _wanted_domain(entry.entity_id, friendly, options):
+            areas.add(area_id)
+    return areas
+
+
 def _room_name(area_name: str, options: dict) -> str:
     overrides = options.get(CONF_AREA_NAME_OVERRIDES) or {}
     name = overrides.get(area_name, area_name)
