@@ -41,6 +41,7 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
         )
         self._attr_options = []
         self._attr_current_option = None
+        self._area_id: str | None = None  # tracked by id so a rename keeps the pick
 
     async def async_added_to_hass(self) -> None:
         self._refresh_options()
@@ -54,8 +55,8 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
     @callback
     def _areas_changed(self, _event: Event) -> None:
         self._refresh_options()
-        if self._attr_current_option not in self._attr_options:
-            self._set(None)
+        area = ar.async_get(self.hass).async_get_area(self._area_id) if self._area_id else None
+        self._set(area.name if area else None)
         self.async_write_ha_state()
 
     def _refresh_options(self) -> None:
@@ -65,9 +66,10 @@ class AreaToSyncSelect(SelectEntity, RestoreEntity):
     def _set(self, name: str | None) -> None:
         self._attr_current_option = name
         area = ar.async_get(self.hass).async_get_area_by_name(name) if name else None
+        self._area_id = area.id if area else None
         self.hass.data.setdefault(DOMAIN, {}).setdefault("_selected_area", {})[
             self._entry.entry_id
-        ] = area.id if area else None
+        ] = self._area_id
 
     async def async_select_option(self, option: str) -> None:
         self._set(option)
