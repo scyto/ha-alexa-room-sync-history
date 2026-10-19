@@ -86,7 +86,8 @@ managed. Without that, a glitch on Amazon's side could look like "everything is 
 ### Removing it
 
 Removing the integration **doesn't change Alexa**. Your groups keep working, and a reinstall picks
-them up again by name. Only the integration's saved record of its groups is deleted.
+them up again by name. Only the integration's saved record of its groups is deleted. Its settings
+go too: after re-adding it, dry-run is back on, so turn it off again before syncing.
 
 To take the groups down too, first use **Configure > Remove the Alexa groups it manages**, which asks
 you to confirm. It removes the groups it manages, which are the ones it created **plus any it
@@ -158,7 +159,7 @@ first.
 - **v0.4.1:** `sync` / `sync_area` actually run. They were registered as lambdas HA never awaited.
 - **v0.5.0:** *Rooms to skip* area picker.
 - **v0.6.0:** full lifecycle (create, update, delete, adopt, keep Echos), plus Preview and Sync
-  buttons with notifications.
+  buttons (results went to a notification until 0.10.2).
 - **v0.7.0:** removing the integration leaves Alexa alone; *Remove managed rooms* in Configure;
   per-call account selection; *Last result* sensor.
 - **v0.8.0:** *Sync one area* in Configure (moved to the device page in 0.9.0).
