@@ -205,14 +205,17 @@ def _log_to_activity(hass: HomeAssistant, entry: ConfigEntry, details: dict[str,
         async_log_entry(hass, details["scope"], body, domain=DOMAIN, entity_id=entity_id)
         return
     groups = details["groups"]
-    changed = {
+    # Skips stay in: "no matched devices" is worth seeing, not the same as matching.
+    notable = {
         name: what for name, what in groups.items()
-        if not str(what).startswith(("unchanged", "skip"))
+        if not str(what).startswith("unchanged")
     }
-    if changed:
-        body = "; ".join(f"{name}: {what}" for name, what in changed.items())
-    else:
+    if notable:
+        body = "; ".join(f"{name}: {what}" for name, what in notable.items())
+    elif groups:
         body = f"all {len(groups)} group(s) already matched"
+    else:
+        body = "nothing to sync"
     entity_id = er.async_get(hass).async_get_entity_id(
         "sensor", DOMAIN, f"{entry.entry_id}_last_result"
     )
