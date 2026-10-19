@@ -255,7 +255,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _handle_remove_managed_rooms(call: ServiceCall) -> ServiceResponse:
         entry = _target_entry(hass, call)
         if not call.data.get("confirm"):
-            raise HomeAssistantError("Set confirm: true to remove the Alexa groups it created.")
+            raise HomeAssistantError("Set confirm: true to remove the Alexa groups it manages.")
         return {"results": await runner.remove_managed_rooms(hass, entry)}
 
     hass.services.async_register(

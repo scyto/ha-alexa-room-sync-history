@@ -67,7 +67,7 @@ HA lists the controls by name, which keeps the *One area* controls together, fol
 
 ### What a sync changes
 
-The integration remembers which Alexa groups it created, and which devices it put in each, keyed by
+The integration remembers which Alexa groups it created or adopted, and which devices it put in each, keyed by
 HA area. A full sync then:
 
 - **creates** a group for an area that doesn't have one;
