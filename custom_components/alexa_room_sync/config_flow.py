@@ -12,6 +12,7 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.selector import AreaSelector, AreaSelectorConfig
 
@@ -67,6 +68,9 @@ class AlexaRoomSyncConfigFlow(ConfigFlow, domain=DOMAIN):
         return AlexaRoomSyncOptionsFlow(config_entry)
 
 
+SKIP_SECTION = "skip"
+
+
 class AlexaRoomSyncOptionsFlow(OptionsFlow):
     """Options: dry-run, naming, and the write-confirmation gate."""
 
@@ -107,6 +111,9 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
+            # The area picker sits in its own titled section; store it flat as before.
+            skip = user_input.pop(SKIP_SECTION, {}) or {}
+            user_input[CONF_EXCLUDED_AREAS] = skip.get(CONF_EXCLUDED_AREAS, [])
             return self.async_create_entry(title="", data=user_input)
 
         opts = self._entry.options
@@ -134,10 +141,17 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
                         CONF_INCLUDE_CHILD_LOCKS, DEFAULT_INCLUDE_CHILD_LOCKS
                     ),
                 ): bool,
-                vol.Optional(
-                    CONF_EXCLUDED_AREAS,
-                    default=opts.get(CONF_EXCLUDED_AREAS, []),
-                ): AreaSelector(AreaSelectorConfig(multiple=True)),
+                vol.Required(SKIP_SECTION): section(
+                    vol.Schema(
+                        {
+                            vol.Optional(
+                                CONF_EXCLUDED_AREAS,
+                                default=opts.get(CONF_EXCLUDED_AREAS, []),
+                            ): AreaSelector(AreaSelectorConfig(multiple=True)),
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
             }
         )
         return self.async_show_form(step_id="settings", data_schema=schema)

@@ -31,11 +31,16 @@
           "confirmed_not_dry_run": "I understand 'apply' will write to my Alexa account",
           "room_prefix": "Room name prefix (optional)",
           "include_climate": "Include Tado/climate entities in rooms",
-          "include_child_locks": "Include child-lock switches in rooms",
-          "excluded_areas": "Areas to skip"
+          "include_child_locks": "Include child-lock switches in rooms"
         },
-        "data_description": {
-          "excluded_areas": "These areas never get an Alexa room from a full sync. Running sync_area on one of them still works."
+        "sections": {
+          "skip": {
+            "name": "Rooms to skip",
+            "description": "These areas never get an Alexa room from a full sync. Running sync_area on one of them still works.",
+            "data": {
+              "excluded_areas": "Areas to skip"
+            }
+          }
         }
       },
       "remove_rooms": {
