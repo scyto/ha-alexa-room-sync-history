@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,12 +29,14 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     ALEXA_MEDIA_DOMAIN,
+    EP_GRAPHQL,
     EP_GROUP,
     EP_LIST_ITEM,
     EP_LIST_ITEM_ID,
     EP_LIST_ITEMS,
     EP_LISTS,
     EP_PHOENIX,
+    GQL_SMARTHOME_QUERY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -173,7 +176,43 @@ def _extract_entity_id(appliance: dict) -> str | None:
             found = looks_like_entity_id(details.get(key))
             if found:
                 return found
-    return looks_like_entity_id(appliance.get("entityId"))
+    found = looks_like_entity_id(appliance.get("entityId"))
+    if found:
+        return found
+    # HA's Alexa endpointId is the entity_id with "." swapped for "#"
+    # (alexa.config.generate_alexa_id); Amazon embeds it at the end of the applianceId.
+    for key in ("applianceId", "entityId"):
+        found = _entity_id_from_alexa_id(appliance.get(key))
+        if found:
+            return found
+    return None
+
+
+_ALEXA_ID_RE = re.compile(r"(?:^|[_:])([a-z][a-z0-9_]*)#([a-z0-9_]+)$")
+
+
+def _entity_id_from_alexa_id(val: Any) -> str | None:
+    """Turn ``..._light#kitchen_cans`` into ``light.kitchen_cans``."""
+    if not isinstance(val, str):
+        return None
+    match = _ALEXA_ID_RE.search(val)
+    if not match:
+        return None
+    head, object_id = match.groups()
+    # The applianceId prefix is joined with "_", so the captured head can carry part of
+    # it; keep the longest known domain it ends with.
+    domains = [d for d in _KNOWN_DOMAINS if head == d or head.endswith("_" + d)]
+    if not domains:
+        return None
+    return f"{max(domains, key=len)}.{object_id}"
+
+
+_KNOWN_DOMAINS = {
+    "alarm_control_panel", "binary_sensor", "button", "camera", "climate", "cover",
+    "event", "fan", "group", "humidifier", "image_processing", "input_boolean",
+    "input_button", "input_number", "light", "lock", "media_player", "number",
+    "scene", "script", "sensor", "switch", "timer", "vacuum", "valve", "water_heater",
+}
 
 
 async def _fetch_appliance_tree(login) -> Any:
@@ -195,7 +234,7 @@ async def _fetch_appliance_tree(login) -> Any:
 
 async def get_raw_appliance_dicts(login) -> list[dict]:
     """Return every raw appliance record dict (unflattened) for diagnostics."""
-    tree = await _fetch_appliance_tree(login)
+    tree = await _fetch_appliance_records(login)
     out: list[dict] = []
     seen_ids: set[str] = set()
     for rec in _walk_appliance_dicts(tree):
@@ -288,9 +327,39 @@ async def get_raw_phoenix_shape(login) -> dict:
     }
 
 
+async def _fetch_gql_appliances(login) -> list[dict]:
+    """List smart-home appliances via the Alexa app's GraphQL endpoint.
+
+    Returns the ``legacyAppliance`` dicts, which carry the applianceId the group API wants.
+    """
+    payload = await _request(login, "post", EP_GRAPHQL, data={"query": GQL_SMARTHOME_QUERY})
+    if not isinstance(payload, dict):
+        return []
+    if payload.get("errors"):
+        raise AlexaClientError(f"GraphQL device list failed: {str(payload['errors'])[:300]}")
+    items = ((payload.get("data") or {}).get("endpoints") or {}).get("items") or []
+    return [
+        item["legacyAppliance"]
+        for item in items
+        if isinstance(item, dict) and isinstance(item.get("legacyAppliance"), dict)
+    ]
+
+
+async def _fetch_appliance_records(login) -> Any:
+    """GraphQL first; fall back to the legacy /api/phoenix tree if it lists nothing."""
+    try:
+        records = await _fetch_gql_appliances(login)
+    except AlexaClientError as err:
+        _LOGGER.warning("GraphQL device list failed, trying /api/phoenix: %s", err)
+        records = []
+    if records:
+        return records
+    return await _fetch_appliance_tree(login)
+
+
 async def get_appliances(login) -> list[Appliance]:
     """Fetch and flatten every smart-home appliance Alexa knows about."""
-    tree = await _fetch_appliance_tree(login)
+    tree = await _fetch_appliance_records(login)
 
     seen: dict[str, Appliance] = {}
     for rec in _walk_appliance_dicts(tree):

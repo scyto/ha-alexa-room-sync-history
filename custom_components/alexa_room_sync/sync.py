@@ -130,21 +130,29 @@ def _wanted_domain(entity_id: str, friendly: str, options: dict) -> bool:
 
 def _match_appliance(
     entity_id: str,
-    friendly: str,
+    names: list[str],
     by_entity: dict[str, str],
     by_name: dict[str, str],
 ) -> str | None:
     """Return an applianceId for this HA entity, or None.
 
     Primary key: the HA entity_id embedded in the appliance (reliable for Nabu Casa).
-    Fallback: exact case-insensitive friendly-name match (unique names only).
+    Fallback: exact case-insensitive match on the friendly name or any alias (unique
+    names only). HA 2026.8+ sends the first alias to Alexa as the device name.
     """
     if entity_id in by_entity:
         return by_entity[entity_id]
-    key = friendly.strip().lower()
-    if key and key in by_name:
-        return by_name[key]
+    for name in names:
+        key = name.strip().lower()
+        if key and key in by_name:
+            return by_name[key]
     return None
+
+
+def _entity_names(entry: er.RegistryEntry, friendly: str) -> list[str]:
+    """Aliases (in order, skipping the 'use entity name' placeholder), then the name."""
+    aliases = [a for a in (entry.aliases or []) if isinstance(a, str)]
+    return [*aliases, friendly]
 
 
 async def build_plan(
@@ -210,7 +218,9 @@ async def build_plan(
             rooms[area_id] = room
         room.wanted[entity_id] = friendly
 
-        aid = _match_appliance(entity_id, friendly, by_entity, by_name)
+        aid = _match_appliance(
+            entity_id, _entity_names(entry, friendly), by_entity, by_name
+        )
         if aid:
             room.matched[entity_id] = aid
         else:

@@ -13,7 +13,29 @@ ASSISTANT_ALEXA = "cloud.alexa"
 
 # Private Alexa API endpoints (reached through alexapy's authenticated session).
 EP_GROUP = "/api/phoenix/group"          # GET list, POST create, DELETE /{id}
-EP_PHOENIX = "/api/phoenix"              # GET all smart-home appliances
+EP_PHOENIX = "/api/phoenix"              # GET all smart-home appliances (legacy; null on many accounts)
+EP_GRAPHQL = "/nexus/v1/graphql"         # POST smart-home endpoint list (what the Alexa app uses)
+
+# Same query alexapy's get_devices_gql sends; each item's legacyAppliance carries the
+# applianceId that /api/phoenix/group expects.
+GQL_SMARTHOME_QUERY = """
+query CustomerSmartHome {
+    endpoints(
+      endpointsQueryParams: { paginationParams: { disablePagination: true } }
+    ) {
+        items {
+            legacyAppliance {
+                applianceId
+                friendlyName
+                friendlyDescription
+                manufacturerName
+                entityId
+                aliases
+            }
+        }
+    }
+}
+"""
 
 # Config / options keys
 CONF_EMAIL = "email"
