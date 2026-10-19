@@ -1,4 +1,4 @@
-"""A 'Last result' line next to the buttons, pointing at the notification."""
+"""A 'Last result' line next to the buttons; the per-group detail is in Activity."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class LastResultSensor(RestoreSensor):
             last_state = await self.async_get_last_state()
             self._attr_native_value = (
                 last_data.native_value if last_data else None
-            ) or "Press a Preview button; results appear in Notifications (the bell)."
+            ) or "Press a Preview button; the result shows here and in Activity."
             if last_state:
                 self._attr_extra_state_attributes = {
                     k: v

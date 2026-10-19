@@ -37,8 +37,8 @@ gap through the **unofficial Alexa API**, using the private endpoints the Alexa 
 
 Everything is read-only until you turn writes on.
 
-1. On the integration's device page, press **Whole house – Preview**. The plan arrives in
-   **Notifications** (the bell in the sidebar) and is summarised in **Last result**.
+1. On the integration's device page, press **Whole house – Preview**. The summary appears in
+   **Last result**, and the device's **Activity** lists what would change in each Alexa group.
 2. To allow writes, go to **Configure > Settings**, turn **Dry-run** off and tick **I understand
    'apply' will write to my Alexa account**.
 3. Try one area first: pick it in **One area** and press **One area – Sync**.
@@ -57,7 +57,7 @@ saying the area name. The sync keeps Echos you add.
 | **One area – Sync** | Syncs only that area's Alexa group. |
 | **Whole house – Preview** | Shows what syncing every area would change. Never writes. |
 | **Whole house – Sync** | Syncs every area. |
-| **Last result** | One-line summary of the last run. The full per-group outcome is in its attributes (`scope`, `mode`, `ran_at`, `groups`), so the run is kept after you dismiss the notification. Each run is also written to the device's **Activity** panel, listing what changed in each Alexa group. |
+| **Last result** | One-line summary of the last run. Each run also adds an entry to the device's **Activity** listing what changed in each Alexa group, and the latest run's detail is in the sensor's attributes (`scope`, `mode`, `ran_at`, `groups`). |
 
 Both Sync buttons write only when dry-run is off and writes are confirmed; otherwise they preview.
 HA lists the controls by name, which keeps the *One area* controls together, followed by
@@ -169,7 +169,7 @@ first.
 - **v0.9.3:** removing the integration also removes the `probe_endpoints` action.
 - **v0.10.0:** clearer names: *One area* / *Whole house* controls, "area" for HA and "Alexa group" for what's created.
 - **v0.10.1:** *Last result* keeps each run's per-group outcome as attributes, viewable in History.
-- **v0.10.2:** each run's per-group changes are written to the Activity (logbook).
+- **v0.10.2:** each run's per-group changes are written to the Activity (logbook); the notification is gone.
 
 ## Credits & licence
 

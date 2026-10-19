@@ -37,7 +37,7 @@ class _RoomSyncButton(ButtonEntity):
 
 
 class PreviewButton(_RoomSyncButton):
-    """Show what a full sync would do, as a notification. Never writes."""
+    """Show what a full sync would do. Never writes."""
 
     _attr_icon = "mdi:eye-outline"
 
@@ -45,7 +45,7 @@ class PreviewButton(_RoomSyncButton):
         super().__init__(entry, "preview")
 
     async def async_press(self) -> None:
-        await runner.run_sync(self.hass, self._entry, apply=False, notify=True)
+        await runner.run_sync(self.hass, self._entry, apply=False)
 
 
 class SyncButton(_RoomSyncButton):
@@ -61,7 +61,7 @@ class SyncButton(_RoomSyncButton):
         apply = bool(options.get(CONF_CONFIRMED)) and not options.get(
             CONF_DRY_RUN, DEFAULT_DRY_RUN
         )
-        await runner.run_sync(self.hass, self._entry, apply=apply, notify=True)
+        await runner.run_sync(self.hass, self._entry, apply=apply)
 
 
 def _writes_enabled(entry: ConfigEntry) -> bool:
@@ -87,7 +87,7 @@ class PreviewAreaButton(_AreaButton):
 
     async def async_press(self) -> None:
         await runner.run_sync(
-            self.hass, self._entry, only_area_id=self._area(), apply=False, notify=True
+            self.hass, self._entry, only_area_id=self._area(), apply=False
         )
 
 
@@ -105,5 +105,4 @@ class SyncAreaButton(_AreaButton):
             self._entry,
             only_area_id=self._area(),
             apply=_writes_enabled(self._entry),
-            notify=True,
         )

@@ -44,19 +44,24 @@ async def run_sync(
     *,
     only_area_id: str | None = None,
     apply: bool = False,
-    notify: bool = False,
 ) -> dict[str, Any]:
-    """Plan and (if ``apply``) carry out the sync. Returns the service response."""
+    """Plan and (if ``apply``) carry out the sync. Returns the service response.
+
+    The outcome goes to the Last result sensor and the device's Activity.
+    """
+    # Older versions posted a notification; clear any that's still lying around.
+    persistent_notification.async_dismiss(hass, NOTIFICATION_ID)
+    scope = _scope(hass, only_area_id)
     try:
         login = ac.get_login_obj(hass, entry.data.get(CONF_EMAIL))
         plan = await sync_mod.build_plan(
             hass, login, dict(entry.options), only_area_id=only_area_id
         )
     except ac.AlexaClientError as err:
-        if notify:
-            persistent_notification.async_create(
-                hass, f"Sync didn't run: {err}", "Alexa Room Sync", NOTIFICATION_ID
-            )
+        details = {"scope": scope, "mode": "error", "ran_at": dt_util.utcnow().isoformat(),
+                   "groups": {}, "error": str(err)}
+        _publish(hass, entry, f"{scope} – didn't run: {str(err)[:180]}", details)
+        _log_to_activity(hass, entry, details)
         raise HomeAssistantError(str(err)) from err
 
     store = _store(hass, entry)
@@ -71,14 +76,9 @@ async def run_sync(
         await store.async_save({"rooms": managed})
 
     response = _response(plan, actions, results, managed, dry_run=not apply)
-    scope = _scope(hass, only_area_id)
     details = _details(actions, results, scope=scope, applied=apply)
     _publish(hass, entry, _short_summary(actions, applied=apply, scope=scope), details)
     _log_to_activity(hass, entry, details)
-    if notify:
-        persistent_notification.async_create(
-            hass, _notification_text(actions, results, scope), "Alexa Room Sync", NOTIFICATION_ID
-        )
     return response
 
 
@@ -164,19 +164,6 @@ def _scope(hass: HomeAssistant, only_area_id: str | None) -> str:
     return f"One area ({area.name if area else only_area_id})"
 
 
-def _notification_text(actions, results, scope: str = "Whole house") -> str:
-    if results is None:
-        lines = [f"**{scope} – preview. Nothing was changed in Alexa.**", ""]
-        lines += [f"- {a.room_name}: {a.describe()}" for a in actions]
-    else:
-        lines = [f"**{scope} – sync finished.**", ""]
-        lines += [f"- {name}: {res}" for name, res in results.items()]
-    changes = [a for a in actions if a.kind not in (sync_mod.UNCHANGED, sync_mod.SKIP)]
-    if results is None and not changes:
-        lines.append("\nEverything already matches.")
-    return "\n".join(lines)
-
-
 def _short_summary(actions, *, applied: bool, scope: str = "Whole house") -> str:
     counts: dict[str, int] = {}
     for a in actions:
@@ -185,12 +172,12 @@ def _short_summary(actions, *, applied: bool, scope: str = "Whole house") -> str
              (sync_mod.DELETE, "delete"), (sync_mod.UNCHANGED, "unchanged")]
     bits = [f"{counts[k]} {label}" for k, label in order if counts.get(k)]
     head = f"{scope} – {'synced' if applied else 'preview'}"
-    return f"{head}: {', '.join(bits) or 'nothing to do'}. Details in Notifications."
+    return f"{head}: {', '.join(bits) or 'nothing to do'}. See Activity."
 
 
 def _details(actions, results, *, scope: str, applied: bool) -> dict[str, Any]:
     """The per-group outcome, kept as sensor attributes so it survives in History
-    after the notification is dismissed."""
+    after the run."""
     if results is None:
         groups = {a.room_name: a.describe() for a in actions}
     else:
@@ -205,10 +192,17 @@ def _details(actions, results, *, scope: str, applied: bool) -> dict[str, Any]:
 
 def _log_to_activity(hass: HomeAssistant, entry: ConfigEntry, details: dict[str, Any]) -> None:
     """Write the per-group outcome to the logbook, so the device's Activity panel
-    shows what each run changed long after the notification is dismissed."""
+    shows what each run changed."""
     try:
         from homeassistant.components.logbook import async_log_entry  # noqa: PLC0415
     except ImportError:
+        return
+    if details.get("error"):
+        body = f"didn't run: {details['error']}"
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{entry.entry_id}_last_result"
+        )
+        async_log_entry(hass, details["scope"], body, domain=DOMAIN, entity_id=entity_id)
         return
     groups = details["groups"]
     changed = {
