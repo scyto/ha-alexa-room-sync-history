@@ -132,7 +132,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 continue
             summary = diag_mod.summarize(raw, sample_count=sample_count)
             if source == "phoenix" and not raw:
-                summary["raw_phoenix_shape"] = await ac.get_raw_phoenix_shape(login)
+                # Extra requests; a failure here must not lose the other source.
+                try:
+                    summary["raw_phoenix_shape"] = await ac.get_raw_phoenix_shape(login)
+                except ac.AlexaClientError as err:
+                    summary["raw_phoenix_shape_error"] = str(err)
             report[source] = summary
             _LOGGER.info(
                 "[dump_appliances:%s] %d appliances, %d carry an embedded entity_id",
