@@ -15,6 +15,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from . import alexa_client as ac
 from . import sync as sync_mod
@@ -70,7 +71,12 @@ async def run_sync(
 
     response = _response(plan, actions, results, managed, dry_run=not apply)
     scope = _scope(hass, only_area_id)
-    _publish(hass, entry, _short_summary(actions, applied=apply, scope=scope))
+    _publish(
+        hass,
+        entry,
+        _short_summary(actions, applied=apply, scope=scope),
+        _details(actions, results, scope=scope, applied=apply),
+    )
     if notify:
         persistent_notification.async_create(
             hass, _notification_text(actions, results, scope), "Alexa Room Sync", NOTIFICATION_ID
@@ -184,10 +190,34 @@ def _short_summary(actions, *, applied: bool, scope: str = "Whole house") -> str
     return f"{head}: {', '.join(bits) or 'nothing to do'}. Details in Notifications."
 
 
-def _publish(hass: HomeAssistant, entry: ConfigEntry, text: str) -> None:
-    hass.data.setdefault(DOMAIN, {}).setdefault("_last_result", {})[entry.entry_id] = text
-    async_dispatcher_send(hass, SIGNAL_RESULT.format(entry_id=entry.entry_id), text)
+def _details(actions, results, *, scope: str, applied: bool) -> dict[str, Any]:
+    """The per-group outcome, kept as sensor attributes so it survives in History
+    after the notification is dismissed."""
+    if results is None:
+        groups = {a.room_name: a.describe() for a in actions}
+    else:
+        groups = dict(results)
+    return {
+        "scope": scope,
+        "mode": "sync" if applied else "preview",
+        "ran_at": dt_util.utcnow().isoformat(),
+        "groups": groups,
+    }
 
 
-def last_result(hass: HomeAssistant, entry: ConfigEntry) -> str | None:
+def _publish(
+    hass: HomeAssistant, entry: ConfigEntry, text: str, details: dict[str, Any]
+) -> None:
+    hass.data.setdefault(DOMAIN, {}).setdefault("_last_result", {})[entry.entry_id] = (
+        text,
+        details,
+    )
+    async_dispatcher_send(
+        hass, SIGNAL_RESULT.format(entry_id=entry.entry_id), text, details
+    )
+
+
+def last_result(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> tuple[str, dict[str, Any]] | None:
     return hass.data.get(DOMAIN, {}).get("_last_result", {}).get(entry.entry_id)

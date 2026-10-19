@@ -37,12 +37,21 @@ class LastResultSensor(RestoreSensor):
         )
 
     async def async_added_to_hass(self) -> None:
-        last = await self.async_get_last_sensor_data()
-        self._attr_native_value = (
-            runner.last_result(self.hass, self._entry)
-            or (last.native_value if last else None)
-            or "Press a Preview button; results appear in Notifications (the bell)."
-        )
+        current = runner.last_result(self.hass, self._entry)
+        if current:
+            self._attr_native_value, self._attr_extra_state_attributes = current
+        else:
+            last_data = await self.async_get_last_sensor_data()
+            last_state = await self.async_get_last_state()
+            self._attr_native_value = (
+                last_data.native_value if last_data else None
+            ) or "Press a Preview button; results appear in Notifications (the bell)."
+            if last_state:
+                self._attr_extra_state_attributes = {
+                    k: v
+                    for k, v in last_state.attributes.items()
+                    if k in ("scope", "mode", "ran_at", "groups")
+                }
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -52,6 +61,9 @@ class LastResultSensor(RestoreSensor):
         )
 
     @callback
-    def _update(self, text: str) -> None:
+    def _update(self, text: str, details: dict) -> None:
+        # ran_at changes every run, so History records each run even when the
+        # one-line summary is the same as last time.
         self._attr_native_value = text
+        self._attr_extra_state_attributes = details
         self.async_write_ha_state()
