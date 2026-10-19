@@ -20,7 +20,7 @@
         "title": "Alexa Room Sync",
         "menu_options": {
           "settings": "Settings",
-          "remove_rooms": "Remove the Alexa groups it created"
+          "remove_rooms": "Remove the Alexa groups it manages"
         }
       },
       "settings": {
@@ -36,7 +36,7 @@
         "sections": {
           "skip": {
             "name": "Areas to skip",
-            "description": "These areas never get an Alexa group, and don't appear in One area.",
+            "description": "These areas never get an Alexa group from a whole-house sync and don't appear in One area. The sync_area action can still target one directly.",
             "data": {
               "excluded_areas": "Areas"
             }
@@ -44,7 +44,7 @@
         }
       },
       "remove_rooms": {
-        "title": "Remove the Alexa groups it created",
+        "title": "Remove the Alexa groups it manages",
         "description": "Deletes the Alexa groups this integration created or adopted. A group that also holds something you added yourself, like an Echo, is kept with just those devices. Groups you made yourself are otherwise never touched. Removing the integration on its own does not change Alexa.",
         "data": {
           "confirm": "Yes, remove these Alexa groups"

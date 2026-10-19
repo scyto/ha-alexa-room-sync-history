@@ -88,7 +88,7 @@ managed. Without that, a glitch on Amazon's side could look like "everything is 
 Removing the integration **doesn't change Alexa**. Your groups keep working, and a reinstall picks
 them up again by name. Only the integration's saved record of its groups is deleted.
 
-To take the groups down too, first use **Configure > Remove the Alexa groups it created**, which asks
+To take the groups down too, first use **Configure > Remove the Alexa groups it manages**, which asks
 you to confirm. It removes the groups it manages, which are the ones it created **plus any it
 adopted** (an existing Alexa group with exactly an area's name). It keeps any device it didn't put
 there. So an adopted group you made by hand is deleted too if it only held HA devices. Rename such
@@ -101,8 +101,9 @@ a group in Alexa before a sync if you want it left alone.
 - **Alexa group name prefix**: for example `HA `, to tell synced groups apart.
 - **Include climate entities** (on by default): thermostats go in their area's group.
 - **Include child-lock switches** (off by default).
-- **Areas to skip**: areas that never get an Alexa group and don't appear in *One area*. If a
-  skipped area already has an Alexa group from this integration, the next whole-house sync removes it.
+- **Areas to skip**: areas that never get an Alexa group from a whole-house sync and don't appear
+  in *One area*. If a skipped area already has an Alexa group from this integration, the next
+  whole-house sync removes it. The `sync_area` action can still target a skipped area directly.
 
 ## Actions (services)
 

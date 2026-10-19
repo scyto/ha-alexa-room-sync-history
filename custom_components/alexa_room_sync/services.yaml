@@ -107,7 +107,7 @@ probe_lists:
     contents of a list. Use this when the Alexa to-do entities are missing or empty.
 
 remove_managed_rooms:
-  name: Remove the Alexa groups it created
+  name: Remove the Alexa groups it manages (created or adopted)
   description: >-
     Deletes the Alexa groups this integration created or adopted. A group that also holds a device you
     added yourself (an Echo) keeps that device and is just released.
