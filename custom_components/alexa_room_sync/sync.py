@@ -654,8 +654,12 @@ def reconcile(
         # An Echo is already in the group if Alexa lists it there by serial; adding its
         # applianceId again doesn't stick and would show as "+1" on every sync.
         in_by_serial = {m for a in group.appliance_ids if (m := member_serial(a))}
-        added = [a for a in want if a not in have
-                 and not in_by_serial.intersection(plan.echo_serials.get(a, ()))]
+        by_serial = [a for a in want
+                     if in_by_serial.intersection(plan.echo_serials.get(a, ()))]
+        added = [a for a in want if a not in have and a not in by_serial]
+        # What we write: the serial entry (kept in ``others``) already stands for that
+        # Echo, so its applianceId stays out of the payload too.
+        write = [a for a in want if a not in by_serial]
         removed = [a for a in have if a not in want]
         renamed_from = group.name if group.name != room.room_name else ""
 
@@ -667,7 +671,7 @@ def reconcile(
         elif added or removed or renamed_from:
             actions.append(RoomAction(UPDATE, room.area_id, room.room_name,
                                       group_id=group.group_id,
-                                      appliance_ids=others + want, added=added,
+                                      appliance_ids=others + write, added=added,
                                       removed=removed, renamed_from=renamed_from,
                                       adopted=adopted, members=want))
         else:
