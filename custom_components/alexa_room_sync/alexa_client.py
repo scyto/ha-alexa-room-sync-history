@@ -1,10 +1,14 @@
 """Thin client over the *unofficial* Alexa API for smart-home group management.
 
-We do NOT authenticate ourselves. Instead we borrow the live, already-authenticated
-``AlexaLogin`` object created by the ``alexa_media`` integration and drive alexapy's
-``AlexaAPI._static_request`` primitive. That primitive already handles the session
-cookie, the ``csrf`` header and OAuth token refresh, so no credentials, cookies or the
-2FA login dance ever live in this integration.
+We do NOT authenticate ourselves. We borrow a live, already-authenticated Amazon session
+from another integration, so no credentials, cookies or the 2FA login dance ever live here:
+
+* HA's core **Alexa Devices** integration (preferred): its ``AmazonEchoApi`` HTTP wrapper,
+  which sends the session cookies and csrf header.
+* **Alexa Media Player**: its alexapy ``AlexaLogin`` and ``AlexaAPI._static_request``.
+
+Both are private APIs of those integrations; ``_request`` is the one place that knows how
+to call each, so everything else takes an opaque ``login``.
 
 Endpoints (private consumer Alexa API, reached at ``https://alexa.<amazon-domain>``):
 
@@ -28,6 +32,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    ALEXA_DEVICES_DOMAIN,
     ALEXA_MEDIA_DOMAIN,
     EP_GRAPHQL,
     EP_GROUP,
@@ -67,12 +72,51 @@ class AlexaGroup:
     raw: dict = field(default_factory=dict)  # Amazon's own document, echoed back on update
 
 
-def get_login_obj(hass: HomeAssistant, email: str | None = None):
-    """Return the authenticated alexapy AlexaLogin from the alexa_media integration.
+@dataclass
+class AlexaDevicesSession:
+    """The signed-in session of one core Alexa Devices account."""
 
-    If ``email`` is None, return the first configured account. Raises AlexaClientError
-    if alexa_media isn't set up or the account/session is missing.
+    api: Any  # aioamazondevices AmazonEchoApi
+    email: str
+    entry_id: str
+
+
+def _alexa_devices_entries(hass: HomeAssistant) -> list:
+    """Loaded Alexa Devices entries whose coordinator has an API object."""
+    from homeassistant.config_entries import ConfigEntryState  # noqa: PLC0415
+
+    return [
+        e for e in hass.config_entries.async_entries(ALEXA_DEVICES_DOMAIN)
+        if e.state is ConfigEntryState.LOADED
+        and getattr(getattr(e, "runtime_data", None), "api", None) is not None
+    ]
+
+
+def _alexa_devices_email(entry) -> str:
+    return str(entry.data.get("username", ""))
+
+
+def get_alexa_devices_session(
+    hass: HomeAssistant, email: str | None
+) -> AlexaDevicesSession | None:
+    """The Alexa Devices session for ``email`` (None = the first), if it is set up."""
+    for entry in _alexa_devices_entries(hass):
+        if email is None or _alexa_devices_email(entry).lower() == email.lower():
+            return AlexaDevicesSession(entry.runtime_data.api, _alexa_devices_email(entry),
+                                       entry.entry_id)
+    return None
+
+
+def get_login_obj(hass: HomeAssistant, email: str | None = None):
+    """Return a signed-in session for ``email``: core Alexa Devices if it is set up for
+    that account, else Alexa Media Player's alexapy ``AlexaLogin``.
+
+    If ``email`` is None, use the first account found. Raises AlexaClientError if
+    neither integration has a usable session.
     """
+    session = get_alexa_devices_session(hass, email)
+    if session is not None:
+        return session
     accounts = (
         hass.data.get(ALEXA_MEDIA_DOMAIN, {}).get("accounts", {})
         if isinstance(hass.data.get(ALEXA_MEDIA_DOMAIN), dict)
@@ -80,15 +124,16 @@ def get_login_obj(hass: HomeAssistant, email: str | None = None):
     )
     if not accounts:
         raise AlexaClientError(
-            "alexa_media has no configured accounts. Install and log in to the "
-            "Alexa Media Player integration first."
+            "No signed-in Alexa account. Set up the Alexa Devices integration "
+            "(or Alexa Media Player) first."
         )
     if email is None:
         email = next(iter(accounts))
     account = accounts.get(email)
     if not account:
         raise AlexaClientError(
-            f"No alexa_media account for '{email}'. Available: {list(accounts)}"
+            f"Neither Alexa Devices nor Alexa Media Player is signed in as '{email}'. "
+            f"Alexa Media Player has: {list(accounts)}"
         )
     login = account.get("login_obj")
     if login is None:
@@ -103,15 +148,63 @@ def get_login_obj(hass: HomeAssistant, email: str | None = None):
 
 
 def list_configured_emails(hass: HomeAssistant) -> list[str]:
-    """Return the emails alexa_media currently has configured."""
+    """Accounts signed in through Alexa Devices or Alexa Media Player."""
+    emails = [_alexa_devices_email(e) for e in _alexa_devices_entries(hass)]
     data = hass.data.get(ALEXA_MEDIA_DOMAIN)
-    if not isinstance(data, dict):
-        return []
-    return list(data.get("accounts", {}))
+    if isinstance(data, dict):
+        emails += list(data.get("accounts", {}))
+    seen: dict[str, str] = {}
+    for email in emails:
+        if email:
+            seen.setdefault(email.lower(), email)
+    return list(seen.values())
+
+
+async def _alexa_devices_request(
+    session: AlexaDevicesSession, method: str, uri: str, data: Any = None
+) -> Any:
+    """Same contract as ``_request``, over core Alexa Devices' HTTP wrapper."""
+    from yarl import URL  # noqa: PLC0415
+
+    http = session.api._http_wrapper  # noqa: SLF001
+    state = session.api._session_state_data  # noqa: SLF001
+    url = URL.joinpath(state.alexa_website_url, uri.lstrip("/"))
+    # Amazon only answers GraphQL to the Alexa app's user agent.
+    headers = None
+    if uri == EP_GRAPHQL:
+        try:
+            from aioamazondevices.const.http import REQUEST_AGENT  # noqa: PLC0415
+
+            agent = REQUEST_AGENT["Amazon"]
+        except (ImportError, KeyError):
+            agent = "AmazonWebView/AmazonAlexa/2.2.663733.0/iOS/18.5/iPhone"
+        headers = {"User-Agent": agent}
+    try:
+        _, resp = await http.session_request(
+            method.upper(), url, input_data=data, json_data=data is not None,
+            extended_headers=headers,
+        )
+    except Exception as err:  # noqa: BLE001 - surface any aioamazondevices failure uniformly
+        raise AlexaClientError(f"{method.upper()} {uri} failed: {err}") from err
+    if resp.status >= 400:
+        raise AlexaClientError(f"{method.upper()} {uri} -> HTTP {resp.status}")
+    if method.lower() == "delete":
+        return True
+    try:
+        # content_type=None: group writes answer 200 with an empty or non-JSON body.
+        payload = await http.response_to_json(resp, "", content_type=None)
+    except Exception:  # noqa: BLE001
+        return {}
+    # aioamazondevices wraps a top-level JSON list in this key; unwrap it to match alexapy.
+    if isinstance(payload, dict) and list(payload) == ["generatedArrayWrapper"]:
+        return payload["generatedArrayWrapper"]
+    return payload
 
 
 async def _request(login, method: str, uri: str, data: dict | None = None) -> Any:
-    """Call the private Alexa API via alexapy's authenticated primitive."""
+    """Call the private Alexa API over whichever session ``login`` is."""
+    if isinstance(login, AlexaDevicesSession):
+        return await _alexa_devices_request(login, method, uri, data)
     # Imported lazily: alexapy is provided at runtime by alexa_media's requirements.
     from alexapy import AlexaAPI  # noqa: PLC0415
 
@@ -591,9 +684,16 @@ async def raw_probe(login, uri: str) -> dict:
     endpoint answers `{}` you need to know whether that is really an empty JSON object or
     an HTML sign-in page, and only the raw response says.
     """
+    out: dict[str, Any] = {"endpoint": uri}
+    if isinstance(login, AlexaDevicesSession):
+        try:
+            out["response"] = await _alexa_devices_request(login, "get", uri)
+            out["status"] = 200
+        except AlexaClientError as err:
+            out["exception"] = str(err)[:200]
+        return out
     from alexapy import AlexaAPI  # noqa: PLC0415
 
-    out: dict[str, Any] = {"endpoint": uri}
     try:
         resp = await AlexaAPI._static_request("get", login, uri)  # noqa: SLF001
     except Exception as err:  # noqa: BLE001

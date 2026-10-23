@@ -29,6 +29,7 @@ from .const import (
     DEFAULT_INCLUDE_CHILD_LOCKS,
     DEFAULT_INCLUDE_ECHOS,
     ALEXA_MEDIA_PLATFORM,
+    ALEXA_DEVICES_DOMAIN,
     DEFAULT_INCLUDE_CLIMATE,
     DEFAULT_ROOM_PREFIX,
 )
@@ -190,8 +191,38 @@ def _echo_serials_by_area(
     return out
 
 
+def _alexa_devices_echos_by_area(
+    hass: HomeAssistant, entry_id: str
+) -> dict[str, list[tuple[str, str]]]:
+    """area_id -> [(entity_id, SERIAL)] for one core Alexa Devices account's Echos.
+
+    Alexa Devices keys each Echo's HA device by its serial. The media player entity
+    names it in results; a device without one uses its device id.
+    """
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    out: dict[str, list[tuple[str, str]]] = {}
+    for device in dr.async_entries_for_config_entry(dev_reg, entry_id):
+        if device.entry_type is dr.DeviceEntryType.SERVICE or not device.area_id:
+            continue
+        serial = next(
+            (ident for dom, ident in device.identifiers if dom == ALEXA_DEVICES_DOMAIN),
+            None,
+        )
+        if not serial:
+            continue
+        entity_id = next(
+            (e.entity_id for e in er.async_entries_for_device(ent_reg, device.id)
+             if e.domain == "media_player"),
+            f"device:{device.id}",
+        )
+        out.setdefault(device.area_id, []).append((entity_id, serial.upper()))
+    return out
+
+
 def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
-               only_area_id, excluded_areas, email=None) -> None:
+               only_area_id, excluded_areas, email=None,
+               alexa_devices_entry_id: str | None = None) -> None:
     """Put each Echo's Alexa device(s) in the group for the HA area it's in."""
     area_reg = ar.async_get(hass)
     by_serial: dict[str, list[str]] = {}
@@ -206,7 +237,13 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
         for serial in appliance.serials:
             by_serial.setdefault(serial.upper(), []).append(appliance.appliance_id)
     matched_areas: set[str] = set()
-    for area_id, echos in _echo_serials_by_area(hass, email).items():
+    # Echo areas come from the integration whose session we're using, so an Echo
+    # placed differently in the two never lands in two groups.
+    echo_areas = (
+        _alexa_devices_echos_by_area(hass, alexa_devices_entry_id)
+        if alexa_devices_entry_id else _echo_serials_by_area(hass, email)
+    )
+    for area_id, echos in echo_areas.items():
         if any(by_serial.get(serial) for _, serial in echos):
             matched_areas.add(area_id)
         if only_area_id and area_id != only_area_id:
@@ -287,7 +324,11 @@ def syncable_area_ids(
         if _wanted_domain(entry.entity_id, friendly, options):
             areas.add(area_id)
     if options.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS):
-        echo_areas = set(_echo_serials_by_area(hass, email))
+        session = ac.get_alexa_devices_session(hass, email)
+        echo_areas = set(
+            _alexa_devices_echos_by_area(hass, session.entry_id) if session
+            else _echo_serials_by_area(hass, email)
+        )
         if email in _MATCHED_ECHO_AREAS:
             # After a preview or sync, only areas whose Echo matched an Alexa device.
             echo_areas &= _MATCHED_ECHO_AREAS[email]
@@ -431,7 +472,8 @@ async def build_plan(
 
     if options.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS):
         _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
-                   only_area_id, excluded_areas, email=getattr(login, "email", None))
+                   only_area_id, excluded_areas, email=getattr(login, "email", None),
+                   alexa_devices_entry_id=getattr(login, "entry_id", None))
 
     floor_rooms: list[PlannedRoom] = []
     if not only_area_id and options.get(CONF_FLOOR_GROUPS, DEFAULT_FLOOR_GROUPS):

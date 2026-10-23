@@ -6,6 +6,8 @@ DOMAIN = "alexa_room_sync"
 
 # The integration this one piggy-backs on for an authenticated Alexa session.
 ALEXA_MEDIA_DOMAIN = "alexa_media"
+# HA's core Alexa Devices integration; preferred when it is signed in to the account.
+ALEXA_DEVICES_DOMAIN = "alexa_devices"
 
 # The Assist/Cloud exposure key we mirror. Alexa Room Sync only ever considers
 # entities that are exposed to Amazon Alexa (via HA Cloud / Nabu Casa).

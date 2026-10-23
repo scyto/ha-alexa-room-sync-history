@@ -6,6 +6,7 @@
   ],
   "config_flow": true,
   "after_dependencies": [
+    "alexa_devices",
     "alexa_media",
     "logbook"
   ],
@@ -14,5 +15,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/scyto/ha-alexa-room-sync/issues",
   "requirements": [],
-  "version": "0.13.0"
+  "version": "0.14.0"
 }
