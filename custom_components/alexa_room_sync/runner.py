@@ -82,16 +82,17 @@ async def _run_sync(
             hass, login, dict(entry.options), only_area_id=only_area_id
         )
     except ac.AlexaClientError as err:
-        details = {"scope": scope, "mode": "error", "ran_at": dt_util.utcnow().isoformat(),
-                   "groups": {}, "error": str(err)}
-        _publish(hass, entry, f"{scope} – didn't run: {str(err)[:180]}", details)
-        _log_to_activity(hass, entry, details)
+        _report_failure(hass, entry, scope, str(err))
         raise HomeAssistantError(str(err)) from err
 
     store = _store(hass, entry)
     data = await store.async_load() or {}
     managed: dict[str, dict] = dict(data.get("rooms", {}))
-    _check_groups_listed(plan.groups, managed)
+    try:
+        _check_groups_listed(plan.groups, managed)
+    except HomeAssistantError as err:
+        _report_failure(hass, entry, scope, str(err))
+        raise
     actions = sync_mod.reconcile(plan, managed, only_area_id=only_area_id)
 
     results = None
@@ -100,7 +101,9 @@ async def _run_sync(
         await store.async_save({"rooms": managed})
 
     response = _response(plan, actions, results, managed, dry_run=not apply)
-    if auto and all(a.kind == sync_mod.UNCHANGED for a in actions):
+    # SKIP ("no matched devices", e.g. Alexa hasn't discovered a new device yet)
+    # changes nothing either, so the hourly run stays quiet about it.
+    if auto and all(a.kind in (sync_mod.UNCHANGED, sync_mod.SKIP) for a in actions):
         return response
     details = _details(actions, results, scope=scope, applied=apply)
     _publish(hass, entry, _short_summary(actions, applied=apply, scope=scope), details)
@@ -108,10 +111,26 @@ async def _run_sync(
     return response
 
 
+def _report_failure(hass: HomeAssistant, entry: ConfigEntry, scope: str, error: str) -> None:
+    """Put a run that couldn't go ahead in Last result and Activity."""
+    details = {"scope": scope, "mode": "error", "ran_at": dt_util.utcnow().isoformat(),
+               "groups": {}, "error": error}
+    _publish(hass, entry, f"{scope} – didn't run: {error[:180]}", details)
+    _log_to_activity(hass, entry, details)
+
+
 async def remove_managed_rooms(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, str]:
     """Undo every room this integration manages in Alexa. Returns name -> result."""
+    # Same lock as a sync: both load, change and save the managed-rooms record.
+    async with _lock(hass, entry):
+        return await _remove_managed_rooms(hass, entry)
+
+
+async def _remove_managed_rooms(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> dict[str, str]:
     store = _store(hass, entry)
     data = await store.async_load() or {}
     managed: dict[str, dict] = dict(data.get("rooms", {}))

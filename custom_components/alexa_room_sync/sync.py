@@ -238,7 +238,7 @@ def _floor_rooms(hass: HomeAssistant, options: dict,
                  area_rooms: list[PlannedRoom]) -> list[PlannedRoom]:
     """One extra Alexa group per HA floor, holding the HA devices of that floor's
     synced areas, so "turn off the ground floor" works. Echos stay out: they belong
-    to their own area's group. A floor whose name is taken by an area's group is
+    to their own area's group, and only Echo speakers are ever added (see _add_echos). A floor whose name is taken by an area's group is
     skipped rather than fighting it for the same Alexa name."""
     area_reg = ar.async_get(hass)
     floor_reg = fr.async_get(hass)
@@ -257,7 +257,9 @@ def _floor_rooms(hass: HomeAssistant, options: dict,
         key = f"{FLOOR_KEY_PREFIX}{floor.floor_id}"
         target = by_floor.setdefault(key, PlannedRoom(area_id=key, room_name=name))
         for entity_id, aid in room.matched.items():
-            if ac.entity_id_from_appliance_id(aid) is not None:
+            # Everything the area group holds except Echos, including HA devices
+            # matched by name rather than by an entity_id in their Alexa id.
+            if not aid.startswith(ECHO_APPLIANCE_PREFIX):
                 target.matched[entity_id] = aid
                 target.wanted[entity_id] = room.wanted.get(entity_id, entity_id)
     return [r for r in by_floor.values() if r.matched]
