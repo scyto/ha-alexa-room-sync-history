@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 
@@ -67,6 +68,9 @@ class SyncPlan:
     ha_appliance_ids: set[str] = field(default_factory=set)
     # applianceId -> the name Alexa shows for it, so results can say what changed.
     names: dict[str, str] = field(default_factory=dict)
+    # Echo speaker applianceId -> its serial(s), upper case. Alexa can list an Echo in a
+    # group by serial ({"dsn": ...}) instead of by this id.
+    echo_serials: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def summary_lines(self) -> list[str]:
         lines = [
@@ -124,7 +128,7 @@ def _area_for_entity(
 
 # Alexa's own device id for an Echo speaker; the only kind we put in a group.
 ECHO_APPLIANCE_PREFIX = "AAA_SonarCloudService_"
-def _is_echo_speaker(appliance) -> bool:
+def is_echo_speaker(appliance) -> bool:
     return (
         appliance.appliance_id.startswith(ECHO_APPLIANCE_PREFIX)
         and "ALEXA_VOICE_ENABLED" in appliance.types
@@ -240,7 +244,7 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
         # built-in sensor or a Zigbee/Matter child on the same driver) can be
         # refused by Amazon and fail the whole update. The speaker is the one that
         # is voice-enabled, which is the test Alexa Media Player uses too.
-        if not _is_echo_speaker(appliance):
+        if not is_echo_speaker(appliance):
             continue
         for serial in appliance.serials:
             by_serial.setdefault(serial.upper(), []).append(appliance.appliance_id)
@@ -494,7 +498,14 @@ async def build_plan(
         total_in_area=total_in_area,
         groups=existing,
         ha_appliance_ids=ha_appliance_ids,
-        names={a.appliance_id: a.friendly_name for a in appliances if a.friendly_name},
+        names={
+            **{a.appliance_id: a.friendly_name for a in appliances if a.friendly_name},
+            **{f"dsn:{serial.upper()}": a.friendly_name
+               for a in appliances if is_echo_speaker(a) and a.friendly_name
+               for serial in a.serials},
+        },
+        echo_serials={a.appliance_id: tuple(x.upper() for x in a.serials)
+                      for a in appliances if is_echo_speaker(a) and a.serials},
     )
 
 
@@ -506,9 +517,24 @@ SKIP = "skip"
 FORGET = "forget"
 
 
+def member_serial(member: str) -> str | None:
+    """The Echo serial of a group member Alexa lists by serial ({"dsn": ...}), else None."""
+    if not member.startswith("{"):
+        return None
+    try:
+        dsn = json.loads(member).get("dsn")
+    except (ValueError, AttributeError):
+        return None
+    return str(dsn).upper() if dsn else None
+
+
 def device_label(appliance_id: str, names: dict[str, str]) -> str:
     """A readable name for an Alexa applianceId: Alexa's own name for it, else the
-    HA entity_id it carries, else the id itself."""
+    HA entity_id it carries, else the id itself. An Echo listed by serial shows as
+    "<Echo name> (by serial)"."""
+    serial = member_serial(appliance_id)
+    if serial:
+        return f"{names.get(f'dsn:{serial}') or 'Echo ' + serial} (by serial)"
     return (
         names.get(appliance_id)
         or ac.entity_id_from_appliance_id(appliance_id)
@@ -625,7 +651,11 @@ def reconcile(
         is_ha = _ha_member_test(plan, record)
         others = [a for a in group.appliance_ids if not is_ha(a)]
         have = [a for a in group.appliance_ids if is_ha(a)]
-        added = [a for a in want if a not in have]
+        # An Echo is already in the group if Alexa lists it there by serial; adding its
+        # applianceId again doesn't stick and would show as "+1" on every sync.
+        in_by_serial = {m for a in group.appliance_ids if (m := member_serial(a))}
+        added = [a for a in want if a not in have
+                 and not in_by_serial.intersection(plan.echo_serials.get(a, ()))]
         removed = [a for a in have if a not in want]
         renamed_from = group.name if group.name != room.room_name else ""
 

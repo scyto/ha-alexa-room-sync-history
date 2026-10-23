@@ -206,6 +206,7 @@ first.
 - **v0.13.0:** optional floor groups and auto-sync; Add to Home Assistant buttons in the README.
 - **v0.14.0:** uses Home Assistant's built-in Alexa Devices integration instead of Alexa Media Player.
 - **v0.14.1:** Alexa Media Player works again as a fallback; Alexa Devices is used when it's signed in to the account.
+- **v0.14.2:** an Echo that Alexa lists in a group by serial counts as already there, so it no longer shows as added on every sync; such entries show as "<Echo> (by serial)".
 
 ## Credits & licence
 
