@@ -60,6 +60,8 @@ class SyncPlan:
     # Every applianceId known to be an HA entity, from any area: by embedded
     # entity_id or by the name fallback. Used to tell HA members from Echos.
     ha_appliance_ids: set[str] = field(default_factory=set)
+    # applianceId -> the name Alexa shows for it, so results can say what changed.
+    names: dict[str, str] = field(default_factory=dict)
 
     def summary_lines(self) -> list[str]:
         lines = [
@@ -403,6 +405,7 @@ async def build_plan(
         total_in_area=total_in_area,
         groups=existing,
         ha_appliance_ids=ha_appliance_ids,
+        names={a.appliance_id: a.friendly_name for a in appliances if a.friendly_name},
     )
 
 
@@ -412,6 +415,16 @@ DELETE = "delete"
 UNCHANGED = "unchanged"
 SKIP = "skip"
 FORGET = "forget"
+
+
+def device_label(appliance_id: str, names: dict[str, str]) -> str:
+    """A readable name for an Alexa applianceId: Alexa's own name for it, else the
+    HA entity_id it carries, else the id itself."""
+    return (
+        names.get(appliance_id)
+        or ac.entity_id_from_appliance_id(appliance_id)
+        or appliance_id
+    )
 
 
 @dataclass
@@ -430,24 +443,34 @@ class RoomAction:
     release: bool = False  # stop managing the room after this update
     members: list[str] = field(default_factory=list)  # HA members we leave in it
     note: str = ""
+    # applianceId -> Alexa name, for the devices this action adds or removes
+    labels: dict[str, str] = field(default_factory=dict)
+
+    def _names(self, appliance_ids: list[str]) -> str:
+        return ", ".join(device_label(a, self.labels) for a in appliance_ids)
 
     def describe(self) -> str:
         if self.kind == CREATE:
-            return f"create with {len(self.appliance_ids)} device(s)"
+            return (f"create with {len(self.appliance_ids)} device(s): "
+                    f"{self._names(self.appliance_ids)}")
         if self.kind == UPDATE and self.release:
-            return (f"remove {len(self.removed)} HA device(s), keep "
+            return (f"remove {len(self.removed)} HA device(s) "
+                    f"({self._names(self.removed)}), keep "
                     f"{len(self.appliance_ids)} other(s), stop managing")
         if self.kind == UPDATE:
             bits = []
             if self.added:
-                bits.append(f"+{len(self.added)}")
+                bits.append(f"added {self._names(self.added)}")
             if self.removed:
-                bits.append(f"-{len(self.removed)}")
+                bits.append(f"removed {self._names(self.removed)}")
             if self.renamed_from:
                 bits.append(f"renamed from '{self.renamed_from}'")
-            return "update " + (", ".join(bits) or "(no member change)")
+            return "update: " + ("; ".join(bits) or "(no member change)")
         if self.kind == DELETE:
-            return "delete" + (f" ({self.note})" if self.note else "")
+            text = "delete" + (f" ({self.note})" if self.note else "")
+            if self.removed:
+                text += f", had {self._names(self.removed)}"
+            return text
         if self.kind == FORGET:
             return "forget (group already gone from Alexa)"
         if self.kind == UNCHANGED:
@@ -520,6 +543,7 @@ def reconcile(
         if not want and not others:
             actions.append(RoomAction(DELETE, room.area_id, room.room_name,
                                       group_id=group.group_id, adopted=adopted,
+                                      removed=list(group.appliance_ids),
                                       note="area has no matched devices"))
         elif added or removed or renamed_from:
             actions.append(RoomAction(UPDATE, room.area_id, room.room_name,
@@ -557,7 +581,10 @@ def reconcile(
             else:
                 actions.append(RoomAction(DELETE, area_id, group.name,
                                           group_id=group.group_id,
+                                          removed=list(group.appliance_ids),
                                           note="area skipped, removed or empty"))
+    for action in actions:
+        action.labels = plan.names
     return actions
 
 
@@ -591,7 +618,8 @@ def teardown(groups: list[ac.AlexaGroup], managed: dict[str, dict]) -> list[Room
             ))
         else:
             actions.append(RoomAction(DELETE, area_id, group.name,
-                                      group_id=group.group_id, note="teardown"))
+                                      group_id=group.group_id,
+                                      removed=list(group.appliance_ids), note="teardown"))
     return actions
 
 
@@ -621,7 +649,7 @@ async def apply_actions(
                 if gid:
                     managed[action.area_id] = {"group_id": gid, "name": action.room_name,
                                                "members": action.members}
-                results[label] = f"created with {len(action.appliance_ids)} device(s)"
+                results[label] = action.describe().replace("create", "created", 1)
                 if not gid:
                     results[label] += " (no groupId returned; adopted by name on next sync)"
             elif action.kind == UPDATE:
@@ -638,7 +666,7 @@ async def apply_actions(
             elif action.kind == DELETE:
                 await ac.delete_group(login, action.group_id)
                 managed.pop(action.area_id, None)
-                results[label] = "deleted"
+                results[label] = action.describe().replace("delete", "deleted", 1)
             elif action.kind == FORGET:
                 managed.pop(action.area_id, None)
                 results[label] = action.describe()

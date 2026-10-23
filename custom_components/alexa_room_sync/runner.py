@@ -211,7 +211,8 @@ def _log_to_activity(hass: HomeAssistant, entry: ConfigEntry, details: dict[str,
         if not str(what).startswith("unchanged")
     }
     if notable:
-        body = "; ".join(f"{name}: {what}" for name, what in notable.items())
+        # " | " between groups: a group's own text uses ";" between added and removed.
+        body = " | ".join(f"{name}: {what}" for name, what in notable.items())
     elif groups:
         body = f"all {len(groups)} group(s) already matched"
     else:

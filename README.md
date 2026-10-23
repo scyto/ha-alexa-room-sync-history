@@ -38,7 +38,8 @@ gap through the **unofficial Alexa API**, using the private endpoints the Alexa 
 Everything is read-only until you turn writes on.
 
 1. On the integration's device page, press **Whole house – Preview**. The summary appears in
-   **Last result**, and the device's **Activity** lists what would change in each Alexa group.
+   **Last result**, and the device's **Activity** lists, by name, the devices each Alexa group
+   would gain or lose.
 2. To allow writes, go to **Configure > Settings**, turn **Dry-run** off and tick **I understand
    'apply' will write to my Alexa account**.
 3. Try one area first: pick it in **One area** and press **One area – Sync**.
@@ -120,7 +121,7 @@ For scripts and automations. With more than one Alexa account set up, pass `conf
 | `alexa_room_sync.preview` | No | Plan and match details. Optional `area_id`. |
 | `alexa_room_sync.sync` | With `apply: true` and the confirmation | Full sync. |
 | `alexa_room_sync.sync_area` | With `apply: true` and the confirmation | One area. |
-| `alexa_room_sync.list_groups` | No | Lists the groups in your Alexa account. |
+| `alexa_room_sync.list_groups` | No | Lists the groups in your Alexa account and the devices in each. |
 | `alexa_room_sync.remove_managed_rooms` | With `confirm: true` | Removes the rooms it created. |
 | `alexa_room_sync.dump_appliances`, `probe_endpoints`, `probe_lists` | No | Diagnostics. |
 
@@ -178,6 +179,7 @@ first.
 - **v0.10.2:** each run's per-group changes are written to the Activity (logbook); the notification is gone.
 - **v0.11.0:** optional *Put Echos in their area's Alexa group*, using Alexa Media Player's areas.
 - **v0.11.1:** Echos: only the Echo speaker device is added to a group (a tablet's AlexaBridge endpoint made Amazon reject the update).
+- **v0.12.0:** Activity and *Last result* name the devices each run added, removed or deleted, not just counts; `list_groups` lists each group's devices.
 
 ## Credits & licence
 
