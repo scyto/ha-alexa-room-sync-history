@@ -4,19 +4,21 @@ from __future__ import annotations
 
 DOMAIN = "alexa_room_sync"
 
-# HA's core Alexa Devices integration: this one borrows its signed-in Amazon session.
+# The integration this one piggy-backs on for an authenticated Alexa session.
+ALEXA_MEDIA_DOMAIN = "alexa_media"
+# HA's core Alexa Devices integration; preferred when it is signed in to the account.
 ALEXA_DEVICES_DOMAIN = "alexa_devices"
 
 # The Assist/Cloud exposure key we mirror. Alexa Room Sync only ever considers
 # entities that are exposed to Amazon Alexa (via HA Cloud / Nabu Casa).
 ASSISTANT_ALEXA = "cloud.alexa"
 
-# Private Alexa API endpoints (reached through Alexa Devices' authenticated session).
+# Private Alexa API endpoints (reached through alexapy's authenticated session).
 EP_GROUP = "/api/phoenix/group"          # GET list, POST create, DELETE /{id}
 EP_PHOENIX = "/api/phoenix"              # GET all smart-home appliances (legacy; null on many accounts)
 EP_GRAPHQL = "/nexus/v1/graphql"         # POST smart-home endpoint list (what the Alexa app uses)
 
-# The Alexa app's smart-home device query; each item's legacyAppliance carries the
+# Same query alexapy's get_devices_gql sends; each item's legacyAppliance carries the
 # applianceId that /api/phoenix/group expects.
 GQL_SMARTHOME_QUERY = """
 query CustomerSmartHome {
@@ -67,6 +69,7 @@ AUTO_SYNC_INTERVAL_HOURS = 1
 
 # Floor groups are kept in the managed-rooms record under this prefix + floor_id.
 FLOOR_KEY_PREFIX = "floor:"
+ALEXA_MEDIA_PLATFORM = "alexa_media"
 
 # Services
 SERVICE_PREVIEW = "preview"

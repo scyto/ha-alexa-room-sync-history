@@ -1,7 +1,7 @@
 """Alexa lists as Home Assistant to-do entities.
 
 One `todo.*` entity per Alexa named list (Shopping List, To-do List, custom lists), read
-and written over the session borrowed from Alexa Devices — no second Amazon login.
+and written over the session borrowed from alexa_media — no second Amazon login.
 
 Being a real todo entity rather than a sensor is the point: HA's own to-do card, the
 dashboard cards and voice assistants all speak this interface, so ticking an item off in
@@ -82,7 +82,7 @@ class AlexaListCoordinator(DataUpdateCoordinator[dict[str, list[ac.AlexaListItem
         self.lists = lists
 
     async def _async_update_data(self) -> dict[str, list[ac.AlexaListItem]]:
-        # Re-borrow the session each cycle: Alexa Devices re-authenticates periodically and
+        # Re-borrow the session each cycle: alexa_media re-authenticates periodically and
         # holding a stale login object is how this dies quietly after a token refresh.
         try:
             self.login = ac.get_login_obj(self.hass, self.entry.data.get(CONF_EMAIL))

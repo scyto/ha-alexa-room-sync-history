@@ -28,6 +28,7 @@ from .const import (
     CONTROLLABLE_DOMAINS,
     DEFAULT_INCLUDE_CHILD_LOCKS,
     DEFAULT_INCLUDE_ECHOS,
+    ALEXA_MEDIA_PLATFORM,
     ALEXA_DEVICES_DOMAIN,
     DEFAULT_INCLUDE_CLIMATE,
     DEFAULT_ROOM_PREFIX,
@@ -130,6 +131,66 @@ def _is_echo_speaker(appliance) -> bool:
     )
 
 
+# AMP media_players that never have an Alexa smart-home device of their own.
+_NON_ECHO_MODELS = ("Speaker Group", "Alexa Mobile Voice")
+# Echo serials (upper case) that matched an Alexa device on the last plan, by account.
+_MATCHED_ECHO_AREAS: dict[str | None, set[str]] = {}
+
+
+def _amp_serial(identifier: str) -> str:
+    """The raw Echo serial from AMP's device identifier.
+
+    AMP's first account uses the serial as-is; later accounts use
+    slugify(f"{serial}_{email}"), lower-cased. Serials are alphanumeric, so the
+    part before the first "_" is the serial; compare case-insensitively.
+    """
+    return identifier.split("_", 1)[0].upper()
+
+
+def _amp_entry_ids(hass: HomeAssistant, email: str | None) -> set[str] | None:
+    """Config entry ids of the Alexa Media Player account for ``email`` (None = any)."""
+    if not email:
+        return None
+    ids = {
+        e.entry_id
+        for e in hass.config_entries.async_entries(ALEXA_MEDIA_PLATFORM)
+        if str(e.data.get("email", "")).lower() == email.lower()
+    }
+    return ids or None
+
+
+def _echo_serials_by_area(
+    hass: HomeAssistant, email: str | None = None
+) -> dict[str, list[tuple[str, str]]]:
+    """area_id -> [(entity_id, SERIAL)] for one account's Alexa Media Player Echos.
+
+    Uses the area you gave each Echo in HA. Phone apps and speaker groups are left
+    out: they have no Alexa smart-home device to put in a group.
+    """
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    account = _amp_entry_ids(hass, email)
+    out: dict[str, list[tuple[str, str]]] = {}
+    for entry in ent_reg.entities.values():
+        if entry.platform != ALEXA_MEDIA_PLATFORM or entry.domain != "media_player":
+            continue
+        if account is not None and entry.config_entry_id not in account:
+            continue
+        if not entry.device_id:
+            continue
+        device = dev_reg.async_get(entry.device_id)
+        if device is None or str(device.model or "").startswith(_NON_ECHO_MODELS):
+            continue
+        ident = next(
+            (ident for dom, ident in device.identifiers if dom == ALEXA_MEDIA_PLATFORM),
+            None,
+        )
+        area_id = _area_for_entity(hass, ent_reg, dev_reg, entry.entity_id)
+        if ident and area_id:
+            out.setdefault(area_id, []).append((entry.entity_id, _amp_serial(ident)))
+    return out
+
+
 def _alexa_devices_echos_by_area(
     hass: HomeAssistant, entry_id: str
 ) -> dict[str, list[tuple[str, str]]]:
@@ -178,15 +239,17 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
         # share its serial (an "AlexaBridge_" endpoint for a tablet's Alexa, a
         # built-in sensor or a Zigbee/Matter child on the same driver) can be
         # refused by Amazon and fail the whole update. The speaker is the one that
-        # is voice-enabled.
+        # is voice-enabled, which is the test Alexa Media Player uses too.
         if not _is_echo_speaker(appliance):
             continue
         for serial in appliance.serials:
             by_serial.setdefault(serial.upper(), []).append(appliance.appliance_id)
     matched_areas: set[str] = set()
+    # Echo areas come from the integration whose session we're using, so an Echo
+    # placed differently in the two never lands in two groups.
     echo_areas = (
         _alexa_devices_echos_by_area(hass, alexa_devices_entry_id)
-        if alexa_devices_entry_id else {}
+        if alexa_devices_entry_id else _echo_serials_by_area(hass, email)
     )
     for area_id, echos in echo_areas.items():
         if any(by_serial.get(serial) for _, serial in echos):
@@ -271,7 +334,8 @@ def syncable_area_ids(
     if options.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS):
         session = ac.get_alexa_devices_session(hass, email)
         echo_areas = set(
-            _alexa_devices_echos_by_area(hass, session.entry_id) if session else {}
+            _alexa_devices_echos_by_area(hass, session.entry_id) if session
+            else _echo_serials_by_area(hass, email)
         )
         if email in _MATCHED_ECHO_AREAS:
             # After a preview or sync, only areas whose Echo matched an Alexa device.

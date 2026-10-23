@@ -51,7 +51,7 @@ class AlexaRoomSyncConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         emails = ac.list_configured_emails(self.hass)
         if not emails:
-            return self.async_abort(reason="no_alexa_devices")
+            return self.async_abort(reason="no_alexa_media")
 
         if user_input is not None:
             email = user_input[CONF_EMAIL]

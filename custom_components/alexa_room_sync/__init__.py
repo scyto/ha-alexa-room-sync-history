@@ -1,9 +1,9 @@
 """Alexa Room Sync — mirror Home Assistant areas into Alexa rooms/groups.
 
 Creates one Alexa group per HA area and assigns each Alexa-exposed HA device to the
-room matching its HA area, using the *unofficial* Alexa API (the private endpoints the
-Alexa app uses). No credentials are handled here — the authenticated session is borrowed
-from HA's Alexa Devices integration at runtime.
+room matching its HA area, using the *unofficial* Alexa API (the private endpoints
+already spoken by the Alexa Media Player integration). No credentials are handled here —
+the authenticated session is borrowed from alexa_media at runtime.
 
 Safety: every service defaults to a read-only PREVIEW. Writes only happen when you call
 ``sync_area`` (one room) or ``sync`` (all rooms) with dry_run turned off in the options.
