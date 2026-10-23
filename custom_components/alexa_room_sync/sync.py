@@ -142,7 +142,7 @@ def _alexa_devices_echos_by_area(
     dev_reg = dr.async_get(hass)
     out: dict[str, list[tuple[str, str]]] = {}
     for device in dr.async_entries_for_config_entry(dev_reg, entry_id):
-        if device.entry_type is dr.DeviceEntryType.SERVICE or not device.area_id:
+        if device.entry_type is dr.DeviceEntryType.SERVICE:
             continue
         serial = next(
             (ident for dom, ident in device.identifiers if dom == ALEXA_DEVICES_DOMAIN),
@@ -153,9 +153,17 @@ def _alexa_devices_echos_by_area(
         entity_id = next(
             (e.entity_id for e in er.async_entries_for_device(ent_reg, device.id)
              if e.domain == "media_player"),
-            f"device:{device.id}",
+            None,
         )
-        out.setdefault(device.area_id, []).append((entity_id, serial.upper()))
+        # The media player's own area wins over its device's, as for any other entity.
+        area_id = (
+            _area_for_entity(hass, ent_reg, dev_reg, entity_id) if entity_id
+            else device.area_id
+        )
+        if area_id:
+            out.setdefault(area_id, []).append(
+                (entity_id or f"device:{device.id}", serial.upper())
+            )
     return out
 
 
