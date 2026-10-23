@@ -97,8 +97,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry = _target_entry(hass, call)
         login = _login_for_entry(hass, entry)
         groups = await ac.get_groups(login)
-        names = {a.appliance_id: a.friendly_name
-                 for a in await ac.get_appliances(login) if a.friendly_name}
+        # Names are a nicety: if the device list fails, still list members by id.
+        try:
+            names = {a.appliance_id: a.friendly_name
+                     for a in await ac.get_appliances(login) if a.friendly_name}
+        except ac.AlexaClientError as err:
+            _LOGGER.warning("list_groups: device names unavailable (%s)", err)
+            names = {}
         return {
             "groups": [
                 {
