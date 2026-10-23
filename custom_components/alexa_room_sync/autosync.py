@@ -52,6 +52,10 @@ def async_start(hass: HomeAssistant, entry: ConfigEntry) -> CALLBACK_TYPE:
     pending: list[CALLBACK_TYPE] = []
 
     async def _run(_now=None) -> None:
+        # The hourly run also covers a debounced one still waiting: cancel it, or it
+        # fires a second sync and outlives _stop. Cancelling a fired timer is a no-op.
+        for cancel in pending:
+            cancel()
         pending.clear()
         if not writes_allowed(dict(entry.options)):
             return
