@@ -3,15 +3,15 @@
     "step": {
       "user": {
         "title": "Alexa Room Sync",
-        "description": "Pick the Alexa account whose Alexa groups should mirror your Home Assistant areas. It uses the signed-in session of HA's Alexa Devices integration if that account is set up there, otherwise Alexa Media Player's.",
+        "description": "Pick the Alexa account whose Alexa groups should mirror your Home Assistant areas. It uses the signed-in session of Home Assistant's Alexa Devices integration.",
         "data": {
           "email": "Alexa account"
         }
       }
     },
     "abort": {
-      "no_alexa_media": "No signed-in Alexa account found. Set up Home Assistant's Alexa Devices integration (or Alexa Media Player) first; this integration reuses its session.",
-      "already_configured": "This Alexa account is already set up."
+      "already_configured": "This Alexa account is already set up.",
+      "no_alexa_devices": "No Alexa account is signed in. Set up Home Assistant's Alexa Devices integration first; this integration reuses its session."
     }
   },
   "options": {
@@ -32,7 +32,7 @@
           "room_prefix": "Alexa group name prefix (optional)",
           "include_climate": "Put thermostats (climate) in Alexa groups",
           "include_child_locks": "Put child-lock switches in Alexa groups",
-          "include_echos": "Put Echos in their area's Alexa group (uses each Echo's area in Alexa Devices, or in Alexa Media Player)",
+          "include_echos": "Put Echos in their area's Alexa group (uses each Echo's area in Alexa Devices)",
           "floor_groups": "Also make one Alexa group per Home Assistant floor",
           "auto_sync": "Sync automatically when areas, floors, devices or exposure change (needs dry-run off and the confirmation ticked)"
         },
