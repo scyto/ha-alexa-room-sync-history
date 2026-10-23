@@ -26,19 +26,14 @@ gap through the **unofficial Alexa API**, using the private endpoints the Alexa 
 
 ## Install
 
-[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=scyto&repository=ha-alexa-room-sync&category=integration)
+| Step | With My Home Assistant | By hand |
+|---|---|---|
+| 1. Get it from HACS | [![Open this repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=scyto&repository=ha-alexa-room-sync&category=integration) | HACS > ⋮ > **Custom repositories**, add `https://github.com/scyto/ha-alexa-room-sync` as an **Integration** |
+| 2. Download | **Download** in HACS, then restart HA | Same |
+| 3. Set it up | [![Add Alexa Room Sync to Home Assistant](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=alexa_room_sync) | **Settings > Devices & services > Add integration > Alexa Room Sync** |
 
-After installing and restarting:
-[![Open your Home Assistant instance and start setting up Alexa Room Sync.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=alexa_room_sync)
-
-Or by hand:
-
-1. HACS > ⋮ > **Custom repositories**: add `https://github.com/scyto/ha-alexa-room-sync`, with the
-   type **Integration**.
-2. Download **Alexa Room Sync** and restart HA.
-3. **Settings > Devices & services > Add integration > Alexa Room Sync**, then pick your Alexa
-   account.
-4. After installing or updating, reload the browser (F5) if menu or field labels show up blank.
+Then pick your Alexa account. After installing or updating, reload the browser (F5) if menu or
+field labels show up blank.
 
 ## Using it
 
