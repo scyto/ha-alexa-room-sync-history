@@ -26,6 +26,13 @@ gap through the **unofficial Alexa API**, using the private endpoints the Alexa 
 
 ## Install
 
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=scyto&repository=ha-alexa-room-sync&category=integration)
+
+After installing and restarting:
+[![Open your Home Assistant instance and start setting up Alexa Room Sync.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=alexa_room_sync)
+
+Or by hand:
+
 1. HACS > ⋮ > **Custom repositories**: add `https://github.com/scyto/ha-alexa-room-sync`, with the
    type **Integration**.
 2. Download **Alexa Room Sync** and restart HA.
@@ -108,6 +115,15 @@ a group in Alexa before a sync if you want it left alone.
   an HA area joins that area's group, matched by serial number. Phone apps and speaker groups are
   skipped. Echos placed this way are managed like HA devices: moved when you change their area, and
   removed by *Remove the Alexa groups it manages*.
+- **Also make one Alexa group per Home Assistant floor** (off by default): each HA floor
+  gets a group holding the HA devices of its synced areas, so "Alexa, turn off the ground
+  floor" works. Floors with nothing synced get no group, Echos stay only in their area's
+  group, and a floor named the same as an area's group is skipped. Turning this off
+  removes the floor groups on the next whole-house sync.
+- **Sync automatically** (off by default): runs a whole-house sync a minute after you
+  change areas, floors, devices or what's exposed to Alexa, and once an hour to catch
+  devices Alexa discovers late. It only writes when dry-run is off and the confirmation is
+  ticked, and it only adds to Activity when something changed.
 - **Areas to skip**: areas that never get an Alexa group from a whole-house sync and don't appear
   in *One area*. If a skipped area already has an Alexa group from this integration, the next
   whole-house sync removes it. The `sync_area` action can still target a skipped area directly.
@@ -180,6 +196,7 @@ first.
 - **v0.11.0:** optional *Put Echos in their area's Alexa group*, using Alexa Media Player's areas.
 - **v0.11.1:** Echos: only the Echo speaker device is added to a group (a tablet's AlexaBridge endpoint made Amazon reject the update).
 - **v0.12.0:** Activity and *Last result* name the devices each run added, removed or deleted, not just counts; `list_groups` lists each group's devices.
+- **v0.13.0:** optional floor groups and auto-sync; Add to Home Assistant buttons in the README.
 
 ## Credits & licence
 

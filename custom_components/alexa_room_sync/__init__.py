@@ -21,10 +21,13 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 
 from . import alexa_client as ac
+from . import autosync
 from . import diag as diag_mod
 from . import runner
 from . import sync as sync_mod
 from .const import (
+    CONF_AUTO_SYNC,
+    DEFAULT_AUTO_SYNC,
     ATTR_AREA_ID,
     CONF_CONFIRMED,
     CONF_DRY_RUN,
@@ -83,6 +86,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    if entry.options.get(CONF_AUTO_SYNC, DEFAULT_AUTO_SYNC):
+        entry.async_on_unload(autosync.async_start(hass, entry))
 
     def _options(local_entry: ConfigEntry) -> dict:
         return dict(local_entry.options)

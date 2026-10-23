@@ -49,12 +49,24 @@ CONF_INCLUDE_ECHOS = "include_echos"
 CONF_AREA_NAME_OVERRIDES = "area_name_overrides"
 CONF_CONFIRMED = "confirmed_not_dry_run"
 CONF_EXCLUDED_AREAS = "excluded_areas"
+CONF_FLOOR_GROUPS = "floor_groups"
+CONF_AUTO_SYNC = "auto_sync"
 
 DEFAULT_DRY_RUN = True
 DEFAULT_ROOM_PREFIX = ""
 DEFAULT_INCLUDE_CLIMATE = True
 DEFAULT_INCLUDE_CHILD_LOCKS = False
 DEFAULT_INCLUDE_ECHOS = False
+DEFAULT_FLOOR_GROUPS = False
+DEFAULT_AUTO_SYNC = False
+
+# Auto-sync: wait this long after the last area/device/entity change before syncing,
+# so a burst of edits is one sync. The hourly run catches devices Alexa discovers late.
+AUTO_SYNC_DELAY_SECONDS = 60
+AUTO_SYNC_INTERVAL_HOURS = 1
+
+# Floor groups are kept in the managed-rooms record under this prefix + floor_id.
+FLOOR_KEY_PREFIX = "floor:"
 ALEXA_MEDIA_PLATFORM = "alexa_media"
 
 # Services

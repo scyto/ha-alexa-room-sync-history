@@ -20,15 +20,19 @@ from . import alexa_client as ac
 from . import runner
 from .const import (
     CONF_AREA_NAME_OVERRIDES,
+    CONF_AUTO_SYNC,
     CONF_CONFIRMED,
     CONF_DRY_RUN,
     CONF_EMAIL,
     CONF_EXCLUDED_AREAS,
+    CONF_FLOOR_GROUPS,
     CONF_INCLUDE_CHILD_LOCKS,
     CONF_INCLUDE_ECHOS,
     CONF_INCLUDE_CLIMATE,
     CONF_ROOM_PREFIX,
+    DEFAULT_AUTO_SYNC,
     DEFAULT_DRY_RUN,
+    DEFAULT_FLOOR_GROUPS,
     DEFAULT_INCLUDE_CHILD_LOCKS,
     DEFAULT_INCLUDE_ECHOS,
     DEFAULT_INCLUDE_CLIMATE,
@@ -146,6 +150,14 @@ class AlexaRoomSyncOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_INCLUDE_ECHOS,
                     default=opts.get(CONF_INCLUDE_ECHOS, DEFAULT_INCLUDE_ECHOS),
+                ): bool,
+                vol.Optional(
+                    CONF_FLOOR_GROUPS,
+                    default=opts.get(CONF_FLOOR_GROUPS, DEFAULT_FLOOR_GROUPS),
+                ): bool,
+                vol.Optional(
+                    CONF_AUTO_SYNC,
+                    default=opts.get(CONF_AUTO_SYNC, DEFAULT_AUTO_SYNC),
                 ): bool,
                 vol.Required(SKIP_SECTION): section(
                     vol.Schema(

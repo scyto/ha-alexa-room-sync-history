@@ -10,6 +10,7 @@ from homeassistant.helpers import (
     area_registry as ar,
     device_registry as dr,
     entity_registry as er,
+    floor_registry as fr,
 )
 
 from . import alexa_client as ac
@@ -19,6 +20,9 @@ from .const import (
     CONF_EXCLUDED_AREAS,
     CONF_INCLUDE_CHILD_LOCKS,
     CONF_INCLUDE_ECHOS,
+    CONF_FLOOR_GROUPS,
+    DEFAULT_FLOOR_GROUPS,
+    FLOOR_KEY_PREFIX,
     CONF_INCLUDE_CLIMATE,
     CONF_ROOM_PREFIX,
     CONTROLLABLE_DOMAINS,
@@ -230,6 +234,35 @@ def _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
     _MATCHED_ECHO_AREAS[email] = matched_areas
 
 
+def _floor_rooms(hass: HomeAssistant, options: dict,
+                 area_rooms: list[PlannedRoom]) -> list[PlannedRoom]:
+    """One extra Alexa group per HA floor, holding the HA devices of that floor's
+    synced areas, so "turn off the ground floor" works. Echos stay out: they belong
+    to their own area's group. A floor whose name is taken by an area's group is
+    skipped rather than fighting it for the same Alexa name."""
+    area_reg = ar.async_get(hass)
+    floor_reg = fr.async_get(hass)
+    taken = {r.room_name for r in area_rooms}
+    by_floor: dict[str, PlannedRoom] = {}
+    for room in area_rooms:
+        area = area_reg.async_get_area(room.area_id)
+        floor = floor_reg.async_get_floor(area.floor_id) if area and area.floor_id else None
+        if floor is None:
+            continue
+        name = _room_name(floor.name, options)
+        if name in taken:
+            _LOGGER.warning("Floor group '%s' skipped: an area's Alexa group has that name",
+                            name)
+            continue
+        key = f"{FLOOR_KEY_PREFIX}{floor.floor_id}"
+        target = by_floor.setdefault(key, PlannedRoom(area_id=key, room_name=name))
+        for entity_id, aid in room.matched.items():
+            if ac.entity_id_from_appliance_id(aid) is not None:
+                target.matched[entity_id] = aid
+                target.wanted[entity_id] = room.wanted.get(entity_id, entity_id)
+    return [r for r in by_floor.values() if r.matched]
+
+
 def syncable_area_ids(
     hass: HomeAssistant, options: dict, email: str | None = None
 ) -> set[str]:
@@ -398,8 +431,12 @@ async def build_plan(
         _add_echos(hass, options, appliances, rooms, ha_appliance_ids,
                    only_area_id, excluded_areas, email=getattr(login, "email", None))
 
+    floor_rooms: list[PlannedRoom] = []
+    if not only_area_id and options.get(CONF_FLOOR_GROUPS, DEFAULT_FLOOR_GROUPS):
+        floor_rooms = _floor_rooms(hass, options, list(rooms.values()))
+
     return SyncPlan(
-        rooms=list(rooms.values()),
+        rooms=list(rooms.values()) + floor_rooms,
         existing_group_names=existing_names,
         total_exposed=total_exposed,
         total_in_area=total_in_area,

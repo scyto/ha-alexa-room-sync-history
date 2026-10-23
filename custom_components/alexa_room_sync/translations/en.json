@@ -32,7 +32,9 @@
           "room_prefix": "Alexa group name prefix (optional)",
           "include_climate": "Put thermostats (climate) in Alexa groups",
           "include_child_locks": "Put child-lock switches in Alexa groups",
-          "include_echos": "Put Echos in their area's Alexa group (uses the areas set in Alexa Media Player)"
+          "include_echos": "Put Echos in their area's Alexa group (uses the areas set in Alexa Media Player)",
+          "floor_groups": "Also make one Alexa group per Home Assistant floor",
+          "auto_sync": "Sync automatically when areas, floors, devices or exposure change (needs dry-run off and the confirmation ticked)"
         },
         "sections": {
           "skip": {
