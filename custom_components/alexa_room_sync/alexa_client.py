@@ -129,7 +129,11 @@ def get_login_obj(hass: HomeAssistant, email: str | None = None):
         )
     if email is None:
         email = next(iter(accounts))
-    account = accounts.get(email)
+    # Case-insensitive: the account list keeps Alexa Devices' spelling of an email
+    # that AMP may store differently.
+    account = accounts.get(email) or next(
+        (v for k, v in accounts.items() if str(k).lower() == email.lower()), None
+    )
     if not account:
         raise AlexaClientError(
             f"Neither Alexa Devices nor Alexa Media Player is signed in as '{email}'. "
