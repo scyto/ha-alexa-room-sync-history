@@ -1,5 +1,10 @@
 # Alexa Room Sync
 
+> **Archived: development history only.** Alexa Room Sync now lives at
+> **[scyto/ha-alexa-room-sync](https://github.com/scyto/ha-alexa-room-sync)**, a standalone repo
+> with the same commits. This repo is kept read-only for its pull requests (#1–#23) and their
+> reviews. Don't install from here.
+
 Keep your **Alexa groups** in step with your **Home Assistant areas**. There is one Alexa group per
 HA area, holding every Alexa-exposed HA device in that area, so "Alexa, turn off the kitchen
 lights" matches how HA is organised. Groups are created, updated when an area's devices change or
