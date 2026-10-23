@@ -125,6 +125,9 @@ a group in Alexa before a sync if you want it left alone.
   floor" works. Floors with nothing synced get no group, Echos stay only in their area's
   group, and a floor named the same as an area's group is skipped. Turning this off
   removes the floor groups on the next whole-house sync.
+- **Floor groups: lights and light switches only** (on by default): floor groups hold only
+  lights and switches, so "Alexa, turn off the ground floor" doesn't also turn off thermostats,
+  purifiers or other devices. Turn it off to give floor groups everything their areas have.
 - **Sync automatically** (off by default): runs a whole-house sync a minute after you
   change areas, floors, devices or what's exposed to Alexa, and once an hour to catch
   devices Alexa discovers late. It only writes when dry-run is off and the confirmation is
@@ -207,6 +210,7 @@ first.
 - **v0.14.0:** uses Home Assistant's built-in Alexa Devices integration instead of Alexa Media Player.
 - **v0.14.1:** Alexa Media Player works again as a fallback; Alexa Devices is used when it's signed in to the account.
 - **v0.14.2:** an Echo that Alexa lists in a group by serial counts as already there, so it no longer shows as added on every sync; such entries show as "<Echo> (by serial)".
+- **v0.14.3:** floor groups hold only lights and light switches by default; the "Alexa lists unavailable" message is logged once at info level instead of a warning on every start.
 
 ## Credits & licence
 

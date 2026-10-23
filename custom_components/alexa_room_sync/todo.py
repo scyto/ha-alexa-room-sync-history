@@ -43,11 +43,16 @@ async def async_setup_entry(
         login = ac.get_login_obj(hass, entry.data.get(CONF_EMAIL))
         lists = await ac.get_lists(login)
     except ac.AlexaClientError as err:
-        _LOGGER.warning(
-            "Alexa lists unavailable (%s) — no to-do entities created. "
-            "Call alexa_room_sync.probe_lists to see what the account still serves.",
-            err,
-        )
+        # Amazon has stopped serving lists on many accounts, so this is expected
+        # rather than a fault: say it once per HA run, at info level.
+        logged = hass.data.setdefault(DOMAIN, {}).setdefault("_lists_unavailable_logged", set())
+        if entry.entry_id not in logged:
+            logged.add(entry.entry_id)
+            _LOGGER.info(
+                "Alexa lists unavailable (%s) — no to-do entities created. "
+                "Call alexa_room_sync.probe_lists to see what the account still serves.",
+                err,
+            )
         return
 
     if not lists:

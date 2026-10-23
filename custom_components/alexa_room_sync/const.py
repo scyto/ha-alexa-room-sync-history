@@ -53,6 +53,7 @@ CONF_CONFIRMED = "confirmed_not_dry_run"
 CONF_EXCLUDED_AREAS = "excluded_areas"
 CONF_FLOOR_GROUPS = "floor_groups"
 CONF_AUTO_SYNC = "auto_sync"
+CONF_FLOOR_LIGHTS_ONLY = "floor_lights_only"
 
 DEFAULT_DRY_RUN = True
 DEFAULT_ROOM_PREFIX = ""
@@ -60,6 +61,10 @@ DEFAULT_INCLUDE_CLIMATE = True
 DEFAULT_INCLUDE_CHILD_LOCKS = False
 DEFAULT_INCLUDE_ECHOS = False
 DEFAULT_FLOOR_GROUPS = False
+# Floor groups hold lights and light switches only, so "turn off the ground floor"
+# doesn't also switch off thermostats, fans or speakers.
+DEFAULT_FLOOR_LIGHTS_ONLY = True
+FLOOR_LIGHT_DOMAINS = ("light", "switch")
 DEFAULT_AUTO_SYNC = False
 
 # Auto-sync: wait this long after the last area/device/entity change before syncing,

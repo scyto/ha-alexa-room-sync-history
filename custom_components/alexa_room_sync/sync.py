@@ -22,6 +22,9 @@ from .const import (
     CONF_INCLUDE_CHILD_LOCKS,
     CONF_INCLUDE_ECHOS,
     CONF_FLOOR_GROUPS,
+    CONF_FLOOR_LIGHTS_ONLY,
+    DEFAULT_FLOOR_LIGHTS_ONLY,
+    FLOOR_LIGHT_DOMAINS,
     DEFAULT_FLOOR_GROUPS,
     FLOOR_KEY_PREFIX,
     CONF_INCLUDE_CLIMATE,
@@ -292,6 +295,7 @@ def _floor_rooms(hass: HomeAssistant, options: dict,
     area_reg = ar.async_get(hass)
     floor_reg = fr.async_get(hass)
     taken = {r.room_name for r in area_rooms}
+    lights_only = options.get(CONF_FLOOR_LIGHTS_ONLY, DEFAULT_FLOOR_LIGHTS_ONLY)
     by_floor: dict[str, PlannedRoom] = {}
     for room in area_rooms:
         area = area_reg.async_get_area(room.area_id)
@@ -307,7 +311,10 @@ def _floor_rooms(hass: HomeAssistant, options: dict,
         target = by_floor.setdefault(key, PlannedRoom(area_id=key, room_name=name))
         for entity_id, aid in room.matched.items():
             # Everything the area group holds except Echos, including HA devices
-            # matched by name rather than by an entity_id in their Alexa id.
+            # matched by name rather than by an entity_id in their Alexa id; with
+            # lights-only on, just lights and (light) switches.
+            if lights_only and entity_id.split(".", 1)[0] not in FLOOR_LIGHT_DOMAINS:
+                continue
             if not aid.startswith(ECHO_APPLIANCE_PREFIX):
                 target.matched[entity_id] = aid
                 target.wanted[entity_id] = room.wanted.get(entity_id, entity_id)
